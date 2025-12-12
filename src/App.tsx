@@ -11,6 +11,7 @@ import Announcements from "@/pages/Announcements";
 import Properties from "@/pages/Properties";
 import Pipeline from "@/pages/Pipeline";
 import Financial from "@/pages/Financial";
+import Agents from "@/pages/Agents";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/imoveis" element={<Properties />} />
             <Route path="/movimentacao" element={<Pipeline />} />
             <Route path="/financeiro" element={<Financial />} />
+            <Route path="/agentes" element={<Agents />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
