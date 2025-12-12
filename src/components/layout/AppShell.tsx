@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   LogOut,
   MoreHorizontal,
+  Bot,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Imóveis', href: '/imoveis', icon: Home },
   { name: 'Movimentação', href: '/movimentacao', icon: ArrowRightLeft },
   { name: 'Financeiro', href: '/financeiro', icon: DollarSign },
+  { name: 'Agentes', href: '/agentes', icon: Bot },
 ];
 
 const mobileNav = [
@@ -211,6 +213,19 @@ export function AppShell() {
                           >
                             <DollarSign className="h-4 w-4" />
                             Financeiro
+                          </NavLink>
+                          <NavLink
+                            to="/agentes"
+                            onClick={() => setMoreMenuOpen(false)}
+                            className={cn(
+                              'flex items-center gap-2 px-3 py-2 rounded-md text-sm',
+                              location.pathname === '/agentes'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            <Bot className="h-4 w-4" />
+                            Agentes
                           </NavLink>
                         </div>
                       </>
