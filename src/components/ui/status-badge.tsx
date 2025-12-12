@@ -1,0 +1,42 @@
+import { cn } from '@/lib/utils';
+
+interface StatusBadgeProps {
+  status: string;
+  variant?: 'default' | 'outline';
+  className?: string;
+}
+
+const statusColors: Record<string, string> = {
+  // Property status
+  'Disponível': 'bg-success/10 text-success border-success/20',
+  'Reservado': 'bg-warning/10 text-warning border-warning/20',
+  'Vendido': 'bg-muted text-muted-foreground border-muted',
+  // Campaign status
+  'Ativo': 'bg-success/10 text-success border-success/20',
+  'Pausado': 'bg-warning/10 text-warning border-warning/20',
+  'Encerrado': 'bg-muted text-muted-foreground border-muted',
+  // Transaction status
+  'Pago': 'bg-success/10 text-success border-success/20',
+  'Pendente': 'bg-warning/10 text-warning border-warning/20',
+  'Atrasado': 'bg-destructive/10 text-destructive border-destructive/20',
+  // Lead origins
+  'WhatsApp': 'bg-success/10 text-success border-success/20',
+  'Site': 'bg-primary/10 text-primary border-primary/20',
+  'Indicação': 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+  'Instagram': 'bg-pink-500/10 text-pink-600 border-pink-500/20',
+  // Team roles
+  'Gerente': 'bg-primary-dark text-primary-foreground',
+  'Corretor': 'bg-primary/10 text-primary',
+};
+
+export function StatusBadge({ status, variant = 'default', className }: StatusBadgeProps) {
+  return (
+    <span className={cn(
+      'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border',
+      statusColors[status] || 'bg-muted text-muted-foreground',
+      className
+    )}>
+      {status}
+    </span>
+  );
+}
