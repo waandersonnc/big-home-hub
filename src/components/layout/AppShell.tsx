@@ -32,7 +32,6 @@ const mobileNav = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Equipe', href: '/equipe', icon: Users },
   { name: 'Imóveis', href: '/imoveis', icon: Home },
-  { name: 'Movimentação', href: '/movimentacao', icon: ArrowRightLeft },
   { name: 'Mais', href: '#more', icon: MoreHorizontal },
 ];
 
@@ -188,6 +187,19 @@ export function AppShell() {
                           onClick={() => setMoreMenuOpen(false)}
                         />
                         <div className="absolute bottom-full right-0 mb-2 z-50 bg-card rounded-lg shadow-elevated border p-2 min-w-40">
+                          <NavLink
+                            to="/movimentacao"
+                            onClick={() => setMoreMenuOpen(false)}
+                            className={cn(
+                              'flex items-center gap-2 px-3 py-2 rounded-md text-sm',
+                              location.pathname === '/movimentacao'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'hover:bg-muted'
+                            )}
+                          >
+                            <ArrowRightLeft className="h-4 w-4" />
+                            Movimentação
+                          </NavLink>
                           <NavLink
                             to="/anuncios"
                             onClick={() => setMoreMenuOpen(false)}
