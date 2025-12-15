@@ -66,9 +66,9 @@ export default function Dashboard() {
       </div>
 
       {/* Chart */}
-      <div className="bg-card rounded-xl p-5 shadow-card border animate-fade-in">
-        <h2 className="text-lg font-semibold text-card-foreground mb-4">Leads vs Vendas</h2>
-        <div className="h-64 lg:h-80">
+      <div className="bg-card rounded-xl p-5 shadow-card border animate-fade-in -mx-4 lg:mx-0 rounded-none lg:rounded-xl">
+        <h2 className="text-lg font-semibold text-card-foreground mb-4 px-4 lg:px-0">Leads vs Vendas</h2>
+        <div className="h-64 lg:h-80 -mx-2 lg:mx-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={leadsVsSalesData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
