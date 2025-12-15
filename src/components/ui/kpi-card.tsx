@@ -28,7 +28,7 @@ export function KPICard({ title, value, icon: Icon, trend, color = 'primary', cl
     )}>
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-sm font-medium text-muted-foreground max-w-[9ch] leading-tight">{title}</p>
           <p className="text-2xl font-bold text-card-foreground">{value}</p>
           {trend && (
             <p className={cn(
