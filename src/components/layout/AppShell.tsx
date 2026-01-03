@@ -40,9 +40,21 @@ export function AppShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const location = useLocation();
+  const isDemo = localStorage.getItem('is_demo') === 'true';
 
   return (
     <div className="min-h-screen bg-muted/30">
+      {/* Demo Banner */}
+      {isDemo && (
+        <div
+          className="fixed top-0 left-0 right-0 z-[60] h-8 bg-red-50 border-b border-red-100 flex items-center justify-center px-4"
+        >
+          <p className="text-red-700 text-[10px] sm:text-xs font-bold tracking-widest text-center uppercase">
+            MODO DEMONSTRATIVO
+          </p>
+        </div>
+      )}
+
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
@@ -56,14 +68,15 @@ export function AppShell() {
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar transition-all duration-300',
           collapsed ? 'w-16' : 'w-64',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+          isDemo && 'top-8'
         )}
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-4 border-b border-sidebar-border">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-foreground text-sidebar font-bold text-sm">
-              BH
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden">
+              <img src="/logo.png" alt="BigHome Logo" className="h-full w-full object-cover" />
             </div>
             {!collapsed && (
               <span className="font-semibold text-lg text-sidebar-foreground">BigHome</span>
@@ -141,15 +154,18 @@ export function AppShell() {
       </aside>
 
       {/* Main content */}
-      <div className={cn('transition-all duration-300', collapsed ? 'lg:pl-16' : 'lg:pl-64')}>
+      <div className={cn('transition-all duration-300', collapsed ? 'lg:pl-16' : 'lg:pl-64', isDemo && 'pt-8')}>
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 bg-background/95 backdrop-blur-sm px-4 border-b lg:hidden">
+        <header className={cn(
+          "sticky top-0 z-30 flex h-14 items-center justify-between gap-4 bg-background/95 backdrop-blur-sm px-4 border-b lg:hidden",
+          isDemo && "top-8"
+        )}>
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg gradient-primary text-primary-foreground font-bold text-xs">
-              BH
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg overflow-hidden">
+              <img src="/logo.png" alt="BigHome Logo" className="h-full w-full object-cover" />
             </div>
             <span className="font-semibold text-foreground">BigHome</span>
           </div>
@@ -160,7 +176,10 @@ export function AppShell() {
         </header>
 
         {/* Page content */}
-        <main className="min-h-[calc(100vh-3.5rem)] lg:min-h-screen pb-20 lg:pb-0">
+        <main className={cn(
+          "min-h-[calc(100vh-3.5rem)] lg:min-h-screen pb-20 lg:pb-0",
+          isDemo && "lg:min-h-[calc(100vh-2rem)]"
+        )}>
           <Outlet />
         </main>
 

@@ -11,11 +11,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
 
   const handleDemo = () => {
+    localStorage.setItem('is_demo', 'true');
     navigate('/dashboard');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    localStorage.removeItem('is_demo');
     // In real app, this would authenticate
     navigate('/dashboard');
   };
@@ -25,12 +27,12 @@ export default function Login() {
       {/* Left side - Gradient (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
-        
+
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20 text-primary-foreground">
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-foreground/20 backdrop-blur-sm">
-                <Home className="h-6 w-6" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-foreground/20 backdrop-blur-sm overflow-hidden">
+                <img src="/logo.png" alt="BigHome Logo" className="h-full w-full object-cover" />
               </div>
               <span className="text-2xl font-bold">BigHome</span>
             </div>
@@ -80,8 +82,8 @@ export default function Login() {
           {/* Mobile logo */}
           <div className="lg:hidden flex flex-col items-center mb-8">
             <div className="flex items-center gap-2 mb-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary text-primary-foreground font-bold">
-                BH
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl overflow-hidden">
+                <img src="/logo.png" alt="BigHome Logo" className="h-full w-full object-cover" />
               </div>
               <span className="text-2xl font-bold text-foreground">BigHome</span>
             </div>
