@@ -37,11 +37,20 @@ export default function Pipeline() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
 
+  const agents = teamMembers.filter((m) => m.role === 'Corretor');
+
+  // Create a set of valid broker names for O(1) lookup
+  const validBrokerNames = new Set(agents.map(a => a.name));
+
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesAgent = agentFilter === 'all' || lead.agent === agentFilter;
-    const hasAgent = lead.agent !== null; // Only show assigned leads
-    return matchesSearch && matchesAgent && hasAgent;
+    const matchesAgentFilter = agentFilter === 'all' || lead.agent === agentFilter;
+
+    // Only show leads assigned to a valid Broker
+    // Checks if agent is not null AND if the agent name exists in the broker list
+    const isAssignedToBroker = lead.agent !== null && validBrokerNames.has(lead.agent);
+
+    return matchesSearch && matchesAgentFilter && isAssignedToBroker;
   });
 
   const getColumnLeads = (status: PipelineColumn) => {
@@ -67,8 +76,6 @@ export default function Pipeline() {
     }
     setDraggedLead(null);
   };
-
-  const agents = teamMembers.filter((m) => m.status === 'active');
 
   return (
     <div className="p-4 lg:p-6 space-y-6 h-full">
