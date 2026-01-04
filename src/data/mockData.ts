@@ -33,11 +33,11 @@ export interface Lead {
   phone: string;
   email: string;
   propertyInterest: string;
-  agent: string;
-  agentAvatar: string;
+  agent: string | null;
+  agentAvatar: string | null;
   origin: 'WhatsApp' | 'Site' | 'Indicação' | 'Instagram';
   createdAt: string;
-  status: 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido';
+  status: 'Novo' | 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido';
 }
 
 export interface Campaign {
@@ -209,6 +209,12 @@ export const properties: Property[] = [
 
 // Leads
 export const leads: Lead[] = [
+  // Leads sem atribuição (agent = null) - Status: Novo
+  { id: '13', name: 'Carlos Eduardo Silva', phone: '(11) 98765-2020', email: 'carlos.eduardo@email.com', propertyInterest: 'Apartamento Garden', agent: null, agentAvatar: null, origin: 'WhatsApp', createdAt: '2024-01-18', status: 'Novo' },
+  { id: '14', name: 'Beatriz Oliveira', phone: '(11) 98765-3030', email: 'beatriz.oliveira@email.com', propertyInterest: 'Casa Alto Padrão', agent: null, agentAvatar: null, origin: 'Site', createdAt: '2024-01-17', status: 'Novo' },
+  { id: '15', name: 'Rafael Souza', phone: '(11) 98765-4040', email: 'rafael.souza@email.com', propertyInterest: 'Studio Centro', agent: null, agentAvatar: null, origin: 'Instagram', createdAt: '2024-01-16', status: 'Novo' },
+  { id: '16', name: 'Larissa Mendes', phone: '(11) 98765-5050', email: 'larissa.mendes@email.com', propertyInterest: 'Cobertura Duplex', agent: null, agentAvatar: null, origin: 'Indicação', createdAt: '2024-01-16', status: 'Novo' },
+  { id: '17', name: 'Gabriel Ferreira', phone: '(11) 98765-6060', email: 'gabriel.ferreira@email.com', propertyInterest: 'Terreno 500m²', agent: null, agentAvatar: null, origin: 'WhatsApp', createdAt: '2024-01-15', status: 'Novo' },
   // Em Espera
   { id: '1', name: 'Roberto Almeida', phone: '(11) 98765-4321', email: 'roberto@email.com', propertyInterest: 'Apartamento Garden', agent: 'Maria Santos', agentAvatar: 'MS', origin: 'WhatsApp', createdAt: '2024-01-15', status: 'Em Espera' },
   { id: '2', name: 'Fernanda Lima', phone: '(11) 98765-1111', email: 'fernanda@email.com', propertyInterest: 'Casa Alto Padrão', agent: 'Pedro Costa', agentAvatar: 'PC', origin: 'Site', createdAt: '2024-01-14', status: 'Em Espera' },

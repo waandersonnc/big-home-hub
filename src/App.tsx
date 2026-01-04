@@ -12,6 +12,15 @@ import Properties from "@/pages/Properties";
 import Pipeline from "@/pages/Pipeline";
 import Financial from "@/pages/Financial";
 import Agents from "@/pages/Agents";
+import PreSignup from "@/pages/PreSignup";
+import SignupOwner from "@/pages/SignupOwner";
+import EmailConfirmation from "@/pages/EmailConfirmation";
+import OnboardingWizard from "@/pages/Onboarding/OnboardingWizard";
+import ResetPassword from "@/pages/ResetPassword";
+import AllDash from "@/pages/AllDash";
+import Leads from "@/pages/Leads";
+import { OnboardingGuard } from "@/guards/OnboardingGuard";
+import { CompanyProvider } from "@/contexts/CompanyContext";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,22 +30,33 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          <Route path="/login" element={<Login />} />
-          <Route element={<AppShell />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/equipe" element={<Team />} />
-            <Route path="/anuncios" element={<Announcements />} />
-            <Route path="/imoveis" element={<Properties />} />
-            <Route path="/movimentacao" element={<Pipeline />} />
-            <Route path="/financeiro" element={<Financial />} />
-            <Route path="/agentes" element={<Agents />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <CompanyProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<PreSignup />} />
+            <Route path="/signup/owner" element={<SignupOwner />} />
+            <Route path="/confirm-email" element={<EmailConfirmation />} />
+            <Route path="/onboarding" element={<OnboardingWizard />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route element={<OnboardingGuard />}>
+              <Route element={<AppShell />}>
+                <Route path="/all-dash" element={<AllDash />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/leads" element={<Leads />} />
+                <Route path="/equipe" element={<Team />} />
+                <Route path="/anuncios" element={<Announcements />} />
+                <Route path="/imoveis" element={<Properties />} />
+                <Route path="/movimentacao" element={<Pipeline />} />
+                <Route path="/financeiro" element={<Financial />} />
+                <Route path="/agentes" element={<Agents />} />
+              </Route>
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </CompanyProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

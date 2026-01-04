@@ -164,6 +164,16 @@ export default function Login() {
               Testar Demonstração
             </Button>
 
+            <p className="text-center text-sm text-muted-foreground pt-4">
+              Não tem uma conta?{' '}
+              <button
+                onClick={() => navigate('/signup')}
+                className="text-primary font-semibold hover:underline"
+              >
+                Criar conta
+              </button>
+            </p>
+
             <p className="text-center text-xs text-muted-foreground">
               Ao continuar, você concorda com nossos{' '}
               <span className="text-primary cursor-pointer hover:underline">Termos de Uso</span>

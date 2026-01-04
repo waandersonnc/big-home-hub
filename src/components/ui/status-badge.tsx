@@ -7,6 +7,11 @@ interface StatusBadgeProps {
 }
 
 const statusColors: Record<string, string> = {
+  // Lead status
+  'Novo': 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  'Em Espera': 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-800',
+  'Em Atendimento': 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-800',
+  'Documentação': 'bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-800',
   // Property status
   'Disponível': 'bg-success/10 text-success border-success/20',
   'Reservado': 'bg-warning/10 text-warning border-warning/20',

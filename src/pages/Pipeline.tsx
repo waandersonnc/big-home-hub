@@ -40,7 +40,8 @@ export default function Pipeline() {
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesAgent = agentFilter === 'all' || lead.agent === agentFilter;
-    return matchesSearch && matchesAgent;
+    const hasAgent = lead.agent !== null; // Only show assigned leads
+    return matchesSearch && matchesAgent && hasAgent;
   });
 
   const getColumnLeads = (status: PipelineColumn) => {
