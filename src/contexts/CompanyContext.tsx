@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { demoStore } from '@/lib/demoStore';
 
 interface Company {
     id: string;
@@ -24,7 +25,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         let isMounted = true;
 
         async function fetchCompanies() {
-            const isDemo = localStorage.getItem('is_demo') === 'true';
+            const isDemo = demoStore.isActive;
 
             if (isDemo) {
                 const demoCompanies = [{ id: 'demo-1', name: 'BigHome Imobiliária (Demo)' }];

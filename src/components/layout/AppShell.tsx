@@ -4,11 +4,13 @@ import { Menu, X, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RoleBasedMenu } from '@/components/RoleBasedMenu';
+import { demoStore } from '@/lib/demoStore';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const isDemo = localStorage.getItem('is_demo') === 'true';
+  const isDemo = demoStore.isActive;
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -31,15 +33,23 @@ export function AppShell() {
 
       {/* Sidebar (Desktop) */}
       <aside className={cn(
-        'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 w-64',
+        'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        collapsed ? 'w-20' : 'w-64',
         isDemo && 'top-8'
       )}>
-        <RoleBasedMenu />
+        <RoleBasedMenu
+          isCollapsed={collapsed}
+          toggleCollapse={() => setCollapsed(!collapsed)}
+        />
       </aside>
 
       {/* Main content */}
-      <div className={cn('transition-all duration-300 lg:pl-64', isDemo && 'pt-8')}>
+      <div className={cn(
+        'transition-all duration-300',
+        collapsed ? 'lg:pl-20' : 'lg:pl-64',
+        isDemo && 'pt-8'
+      )}>
         {/* Mobile header */}
         <header className={cn(
           "sticky top-0 z-30 flex h-14 items-center justify-between gap-4 bg-background/95 backdrop-blur-sm px-4 border-b lg:hidden",

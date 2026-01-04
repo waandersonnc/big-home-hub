@@ -4,15 +4,26 @@ import { Mail, Lock, ArrowRight, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toast } from '@/components/ui/use-toast';
+import { demoStore } from '@/lib/demoStore';
 
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleDemo = () => {
-    localStorage.setItem('is_demo', 'true');
+  const handleDemo = async () => {
+    // Clear any old stored state to start fresh
+    localStorage.removeItem('is_demo');
+
+    // Active memory-only demo state
+    demoStore.activate();
+
     navigate('/dashboard');
+    toast({
+      title: "Modo Demonstrativo",
+      description: "Você está acessando uma versão de demonstração.",
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { demoStore } from '@/lib/demoStore';
 
 export type UserType = 'owner' | 'manager' | 'broker';
 
@@ -33,8 +34,9 @@ export function useRole() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // ... (in useRole)
         async function fetchRole() {
-            const isDemo = localStorage.getItem('is_demo') === 'true';
+            const isDemo = demoStore.isActive;
 
             if (isDemo && !user) {
                 setRole('owner');
@@ -74,5 +76,5 @@ export function useRole() {
         fetchRole();
     }, [user]);
 
-    return { role, loading };
+    return { role, user, loading };
 }

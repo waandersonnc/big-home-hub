@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { demoStore } from '@/lib/demoStore';
 import { Loader2 } from 'lucide-react';
 
 export function OnboardingGuard() {
@@ -16,9 +17,9 @@ export function OnboardingGuard() {
                 const currentSession = data?.session ?? null;
                 setSession(currentSession);
 
-                const isDemo = localStorage.getItem('is_demo') === 'true';
+                const isDemo = demoStore.isActive;
 
-                if (currentSession && !isDemo) {
+                if (currentSession) {
                     const { data: owner } = await supabase
                         .from('owners')
                         .select('onboarding_completed, email_confirmed')
@@ -38,8 +39,7 @@ export function OnboardingGuard() {
 
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
             setSession(session);
-            const isDemo = localStorage.getItem('is_demo') === 'true';
-            if (session && !isDemo) {
+            if (session) {
                 const { data: owner } = await supabase
                     .from('owners')
                     .select('onboarding_completed')
@@ -54,7 +54,7 @@ export function OnboardingGuard() {
         };
     }, []);
 
-    const isDemo = localStorage.getItem('is_demo') === 'true';
+    const isDemo = demoStore.isActive;
 
     if (loading) {
         return (
