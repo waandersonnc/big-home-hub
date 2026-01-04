@@ -30,7 +30,7 @@ export default function Leads() {
         return matchesSearch && matchesStatus && isUnassigned;
     });
 
-    const activeAgents = teamMembers.filter(member => member.status === 'active');
+    const activeAgents = teamMembers.filter(member => member.status === 'active' && member.role === 'Corretor');
 
     // Force update state to trigger re-render
     const [, setTick] = useState(0);
