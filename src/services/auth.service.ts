@@ -1,10 +1,10 @@
 import { supabase } from "@/lib/supabase";
+import { logger } from "@/lib/logger";
+import { WEBHOOK_URLS, WEBHOOK_RESPONSE_KEYS, RATE_LIMITS } from "@/lib/constants";
+import type { OwnerData, WebhookResponse } from "@/types";
 
-export interface OwnerData {
-    full_name: string;
-    phone: string;
-    email: string;
-}
+// Rate limiting para resend
+const resendCooldowns = new Map<string, number>();
 
 export const authService = {
     async signUp(email: string, password: string, ownerData: OwnerData) {
@@ -20,7 +20,7 @@ export const authService = {
             }
         });
 
-        console.log("Supabase SignUp Metadata Sent:", {
+        logger.debug("Supabase SignUp Metadata Sent", {
             full_name: ownerData.full_name,
             phone: ownerData.phone
         });
@@ -29,68 +29,76 @@ export const authService = {
         if (!authData.user) throw new Error("Falha ao criar usuário.");
 
         // 2. Send data to n8n Webhook
-        console.log('Enviando dados para webhook 1:', {
+        const webhookPayload = {
             id: authData.user.id,
             full_name: ownerData.full_name,
             phone: ownerData.phone,
             email: ownerData.email,
             role: 'owner'
+        };
+
+        logger.debug('Enviando dados para webhook de criação de conta', {
+            id: authData.user.id,
+            role: 'owner'
+            // Dados sensíveis serão sanitizados pelo logger
         });
 
         try {
-            const response = await fetch('https://n8n-n8n-start.zfverl.easypanel.host/webhook/criarcontaowner', {
+            const response = await fetch(WEBHOOK_URLS.CREATE_OWNER_ACCOUNT, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    id: authData.user.id,
-                    full_name: ownerData.full_name,
-                    phone: ownerData.phone,
-                    email: ownerData.email,
-                    role: 'owner'
-                })
+                body: JSON.stringify(webhookPayload)
             });
 
             if (!response.ok) {
-                console.error('Webhook failed with status:', response.status);
+                logger.error('Webhook falhou com status:', response.status);
                 throw new Error(`Erro no webhook: ${response.statusText}`);
             }
 
-            const responseData = await response.json();
-            console.log('Resposta do webhook 1:', responseData);
+            const responseData = await response.json() as WebhookResponse;
+            logger.debug('Resposta do webhook de criação', { success: responseData[WEBHOOK_RESPONSE_KEYS.ACCOUNT_CREATED] });
+
+            // Validação robusta da resposta
+            if (!responseData || typeof responseData !== 'object') {
+                throw new Error("Resposta inválida do sistema. Tente novamente.");
+            }
 
             // Strict check for "conta_criada" === true
-            if (responseData['conta_criada'] !== true) {
+            if (responseData[WEBHOOK_RESPONSE_KEYS.ACCOUNT_CREATED] !== true) {
                 throw new Error("Aguardando confirmação do sistema. Tente novamente.");
             }
 
-        } catch (webhookError: any) {
-            console.error('Webhook error:', webhookError);
-            throw new Error(webhookError.message || "Erro ao processar cadastro. Tente novamente.");
+        } catch (webhookError: unknown) {
+            const error = webhookError as Error;
+            logger.error('Erro no webhook:', error.message);
+            throw new Error(error.message || "Erro ao processar cadastro. Tente novamente.");
         }
 
         return authData.user;
     },
 
-    async checkEmailExists(email: string) {
-        // This might still need DB access if we want to check pre-auth
-        // For now relying on Supabase Auth unique constraint is safer/easier
-        // or we check the 'owners' table if RLS allows anon read of emails (usually not)
-        return false;
-    },
 
     async resendCode(email: string, full_name: string, phone: string, userId: string) {
-        // Call the same webhook as requested
+        // Rate limiting check
+        const now = Date.now();
+        const lastResend = resendCooldowns.get(userId);
+
+        if (lastResend && (now - lastResend) < RATE_LIMITS.RESEND_CODE_COOLDOWN_MS) {
+            const remainingSeconds = Math.ceil((RATE_LIMITS.RESEND_CODE_COOLDOWN_MS - (now - lastResend)) / 1000);
+            throw new Error(`Aguarde ${remainingSeconds} segundos antes de reenviar o código.`);
+        }
+
         try {
-            const response = await fetch('https://n8n-n8n-start.zfverl.easypanel.host/webhook/reenviartoken', {
+            const response = await fetch(WEBHOOK_URLS.RESEND_TOKEN, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
                     id: userId,
-                    name: full_name, // Webhook expects 'name', not 'full_name' based on prompt
+                    full_name: full_name,
                     phone: phone,
                     email: email,
                 })
@@ -100,16 +108,25 @@ export const authService = {
                 throw new Error(`Erro no webhook: ${response.statusText}`);
             }
 
-            const responseData = await response.json();
+            const responseData = await response.json() as WebhookResponse;
 
-            if (responseData['conta criada'] !== true) {
+            // Validação robusta
+            if (!responseData || typeof responseData !== 'object') {
+                throw new Error("Resposta inválida do sistema. Tente novamente.");
+            }
+
+            if (responseData[WEBHOOK_RESPONSE_KEYS.ACCOUNT_CREATED] !== true) {
                 throw new Error("Sistema não liberou o reenvio. Tente mais tarde.");
             }
 
+            // Atualizar cooldown apenas em caso de sucesso
+            resendCooldowns.set(userId, now);
+
             return true;
-        } catch (error: any) {
-            console.error('Resend webhook error:', error);
-            throw error;
+        } catch (error: unknown) {
+            const err = error as Error;
+            logger.error('Erro ao reenviar código:', err.message);
+            throw err;
         }
     },
 
@@ -122,7 +139,7 @@ export const authService = {
             .single();
 
         if (error) {
-            console.error('Error fetching owner token:', error);
+            logger.error('Erro ao buscar token do owner:', error.message);
             throw new Error("Erro ao validar token. Tente novamente.");
         }
 

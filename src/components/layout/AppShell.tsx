@@ -13,20 +13,18 @@ export function AppShell() {
   const isDemo = demoStore.isActive;
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      {/* Demo Banner */}
-      {isDemo && (
-        <div className="fixed top-0 left-0 right-0 z-[60] h-8 bg-red-50 border-b border-red-100 flex items-center justify-center px-4">
-          <p className="text-red-700 text-[10px] sm:text-xs font-bold tracking-widest text-center uppercase">
-            MODO DEMONSTRATIVO
-          </p>
-        </div>
-      )}
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 relative">
+      {/* Subtle Background Glow - Apple Style */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden opacity-40">
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px]" />
+      </div>
+
+
 
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden transition-smooth"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -35,8 +33,7 @@ export function AppShell() {
       <aside className={cn(
         'fixed inset-y-0 left-0 z-50 flex flex-col transition-all duration-300',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
-        collapsed ? 'w-20' : 'w-64',
-        isDemo && 'top-8'
+        collapsed ? 'w-20' : 'w-64'
       )}>
         <RoleBasedMenu
           isCollapsed={collapsed}
@@ -47,13 +44,11 @@ export function AppShell() {
       {/* Main content */}
       <div className={cn(
         'transition-all duration-300',
-        collapsed ? 'lg:pl-20' : 'lg:pl-64',
-        isDemo && 'pt-8'
+        collapsed ? 'lg:pl-20' : 'lg:pl-64'
       )}>
         {/* Mobile header */}
         <header className={cn(
-          "sticky top-0 z-30 flex h-14 items-center justify-between gap-4 bg-background/95 backdrop-blur-sm px-4 border-b lg:hidden",
-          isDemo && "top-8"
+          "sticky top-0 z-30 flex h-14 items-center justify-between gap-4 glass-light px-4 border-b border-white/10 lg:hidden"
         )}>
           <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)}>
             <Menu className="h-5 w-5" />
@@ -69,8 +64,7 @@ export function AppShell() {
 
         {/* Page content */}
         <main className={cn(
-          "min-h-[calc(100vh-3.5rem)] lg:min-h-screen flex flex-col",
-          isDemo && "lg:min-h-[calc(100vh-2rem)]"
+          "min-h-[calc(100vh-3.5rem)] lg:min-h-screen flex flex-col"
         )}>
           <div className="flex-1 p-4 md:p-8">
             <Outlet />

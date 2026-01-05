@@ -8,6 +8,8 @@ import Step2Quantity from './Step2Quantity';
 import Step3Companies from './Step3Companies';
 import Step4Complete from './Step4Complete';
 import { Progress } from '@/components/ui/progress';
+import type { User } from '@supabase/supabase-js';
+import type { CompanyData } from '@/types';
 
 export default function OnboardingWizard() {
     const navigate = useNavigate();
@@ -15,13 +17,24 @@ export default function OnboardingWizard() {
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [user, setUser] = useState<any>(null);
+    const [user, setUser] = useState<User | null>(null);
 
     const [onboardingData, setOnboardingData] = useState({
+        // Personal data
+        full_name: '',
+        phone: '',
         profile_photo_url: '',
         cpf_cnpj: '',
+
+        // Quantity data
+        num_brokers: 0,
+        num_properties: 0,
         company_count: 1,
-        companies: [] as any[],
+
+        // Company data
+        companies: [] as CompanyData[],
+
+        // Progress tracking
         personal_data_completed: false,
         companies_data_completed: false,
     });
@@ -124,7 +137,7 @@ export default function OnboardingWizard() {
                         <Step4Complete
                             userId={user.id}
                             data={onboardingData}
-                            onFinish={() => navigate('/dashboard')}
+                            onFinish={() => navigate('/painel')}
                         />
                     )}
                 </div>

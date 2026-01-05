@@ -4,7 +4,8 @@ import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { transactions, revenueData } from '@/data/mockData';
+import { transactions as initialTransactions, revenueData as initialRevenue } from '@/data/mockData';
+import { demoStore } from '@/lib/demoStore';
 import {
   Select,
   SelectContent,
@@ -27,14 +28,26 @@ type TransactionType = 'all' | 'Venda' | 'Comissão' | 'Despesa';
 type TransactionStatus = 'all' | 'Pago' | 'Pendente' | 'Atrasado';
 
 export default function Financial() {
+  const isDemo = demoStore.isActive;
   const [typeFilter, setTypeFilter] = useState<TransactionType>('all');
   const [statusFilter, setStatusFilter] = useState<TransactionStatus>('all');
 
-  const filteredTransactions = transactions.filter((tx) => {
+  const displayTransactions = isDemo ? initialTransactions : [];
+  const displayRevenue = isDemo ? initialRevenue : [];
+
+  const filteredTransactions = displayTransactions.filter((tx) => {
     const matchesType = typeFilter === 'all' || tx.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || tx.status === statusFilter;
     return matchesType && matchesStatus;
   });
+
+  const kpis = {
+    revenue: isDemo ? "R$ 45.800" : "R$ 0",
+    commissions: isDemo ? "R$ 12.450" : "R$ 0",
+    avgTicket: isDemo ? "R$ 485.000" : "R$ 0",
+    goalProgress: isDemo ? 65 : 0,
+    goalDetail: isDemo ? "R$ 45.800 de R$ 70.000" : "R$ 0 de R$ 0"
+  };
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -71,20 +84,20 @@ export default function Financial() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Receita do Mês"
-          value="R$ 45.800"
+          value={kpis.revenue}
           icon={DollarSign}
           color="success"
-          trend={{ value: 15, isPositive: true }}
+          trend={isDemo ? { value: 15, isPositive: true } : undefined}
         />
         <KPICard
           title="Comissões a Pagar"
-          value="R$ 12.450"
+          value={kpis.commissions}
           icon={Wallet}
           color="warning"
         />
         <KPICard
           title="Ticket Médio"
-          value="R$ 485.000"
+          value={kpis.avgTicket}
           icon={TrendingUp}
           color="primary"
         />
@@ -95,9 +108,9 @@ export default function Financial() {
               <Target className="h-5 w-5 text-purple-600" />
             </div>
           </div>
-          <p className="text-2xl font-bold text-card-foreground mb-2">65%</p>
-          <Progress value={65} className="h-2" />
-          <p className="text-xs text-muted-foreground mt-2">R$ 45.800 de R$ 70.000</p>
+          <p className="text-2xl font-bold text-card-foreground mb-2">{kpis.goalProgress}%</p>
+          <Progress value={kpis.goalProgress} className="h-2" />
+          <p className="text-xs text-muted-foreground mt-2">{kpis.goalDetail}</p>
         </div>
       </div>
 
@@ -106,36 +119,42 @@ export default function Financial() {
         <h2 className="text-lg font-semibold text-card-foreground mb-4">Receita Mensal</h2>
         <div className="h-64 lg:h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={revenueData}>
-              <defs>
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <YAxis
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number) => [formatCurrency(value), 'Receita']}
-              />
-              <Area
-                type="monotone"
-                dataKey="revenue"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                fill="url(#colorRevenue)"
-              />
-            </AreaChart>
+            {displayRevenue.length > 0 ? (
+              <AreaChart data={displayRevenue}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                  formatter={(value: number) => [formatCurrency(value), 'Receita']}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  fill="url(#colorRevenue)"
+                />
+              </AreaChart>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground italic">
+                Sem dados financeiros para o período.
+              </div>
+            )}
           </ResponsiveContainer>
         </div>
       </div>

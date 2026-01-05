@@ -1,10 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
+import type { OnboardingQuantityData } from '@/types';
 
 interface Step2Props {
-    data: any;
-    onUpdate: (val: any) => void;
+    data: OnboardingQuantityData & { company_count?: number };
+    onUpdate: (val: Partial<OnboardingQuantityData & { company_count?: number }>) => void;
     onNext: () => void;
     onBack: () => void;
 }

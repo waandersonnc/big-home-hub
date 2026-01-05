@@ -3,7 +3,8 @@ import { Search, Filter, Phone, Mail, Calendar, MoreVertical, UserPlus } from 'l
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { leads, teamMembers } from '@/data/mockData';
+import { leads as initialLeads, teamMembers as initialMembers } from '@/data/mockData';
+import { demoStore } from '@/lib/demoStore';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,11 +18,15 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function Leads() {
+    const isDemo = demoStore.isActive;
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
     const { toast } = useToast();
 
-    const filteredLeads = leads.filter(lead => {
+    const displayLeads = isDemo ? initialLeads : [];
+    const displayMembers = isDemo ? initialMembers : [];
+
+    const filteredLeads = displayLeads.filter(lead => {
         const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
             lead.phone.includes(searchTerm);
@@ -30,13 +35,13 @@ export default function Leads() {
         return matchesSearch && matchesStatus && isUnassigned;
     });
 
-    const activeAgents = teamMembers.filter(member => member.status === 'active' && member.role === 'Corretor');
+    const activeAgents = displayMembers.filter(member => member.status === 'active' && member.role === 'Corretor');
 
     // Force update state to trigger re-render
     const [, setTick] = useState(0);
 
     const handleAssignAgent = (leadId: string, agentName: string) => {
-        const lead = leads.find(l => l.id === leadId);
+        const lead = displayLeads.find(l => l.id === leadId);
         if (lead) {
             lead.agent = agentName;
             lead.status = 'Em Espera';
@@ -57,8 +62,8 @@ export default function Leads() {
         <div className="p-4 lg:p-6 space-y-6">
             {/* Header */}
             <div className="flex flex-col gap-1">
-                <h1 className="text-2xl font-bold text-foreground">Leads</h1>
-                <p className="text-muted-foreground">Leads aguardando atribuição de corretor</p>
+                <h1 className="text-2xl font-bold text-foreground">Oportunidades</h1>
+                <p className="text-muted-foreground">Novas oportunidades aguardando atribuição de corretor</p>
             </div>
 
             {/* Filters */}
@@ -176,7 +181,7 @@ export default function Leads() {
                             {filteredLeads.length === 0 && (
                                 <tr>
                                     <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
-                                        Nenhum lead sem atribuição encontrado.
+                                        Nenhuma oportunidade sem atribuição encontrada.
                                     </td>
                                 </tr>
                             )}

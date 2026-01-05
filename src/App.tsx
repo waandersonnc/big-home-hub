@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
-import Team from "@/pages/Team";
+import Team from "@/pages/Team/index";
 import Announcements from "@/pages/Announcements";
 import Properties from "@/pages/Properties";
 import Pipeline from "@/pages/Pipeline";
@@ -35,17 +35,17 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<PreSignup />} />
-            <Route path="/signup/owner" element={<SignupOwner />} />
-            <Route path="/confirm-email" element={<EmailConfirmation />} />
+            <Route path="/cadastro" element={<PreSignup />} />
+            <Route path="/cadastro/dono" element={<SignupOwner />} />
+            <Route path="/confirmar-email" element={<EmailConfirmation />} />
             <Route path="/onboarding" element={<OnboardingWizard />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/recuperar-senha" element={<ResetPassword />} />
 
             <Route element={<OnboardingGuard />}>
               <Route element={<AppShell />}>
-                <Route path="/all-dash" element={<AllDash />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/leads" element={<Leads />} />
+                <Route path="/visao-geral" element={<AllDash />} />
+                <Route path="/painel" element={<Dashboard />} />
+                <Route path="/oportunidades" element={<Leads />} />
                 <Route path="/equipe" element={<Team />} />
                 <Route path="/anuncios" element={<Announcements />} />
                 <Route path="/imoveis" element={<Properties />} />

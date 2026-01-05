@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Eye, MousePointer, Target, DollarSign, Users, TrendingUp } from 'lucide-react';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { campaigns, campaignPerformance } from '@/data/mockData';
+import { campaigns as initialCampaigns, campaignPerformance as initialPerformance } from '@/data/mockData';
+import { demoStore } from '@/lib/demoStore';
 import {
   Select,
   SelectContent,
@@ -23,7 +24,20 @@ import {
 import { cn } from '@/lib/utils';
 
 export default function Announcements() {
+  const isDemo = demoStore.isActive;
   const [period, setPeriod] = useState('30');
+
+  const displayCampaigns = isDemo ? initialCampaigns : [];
+  const displayPerformance = isDemo ? initialPerformance : [];
+
+  const kpis = {
+    impressions: isDemo ? "45.280" : "0",
+    clicks: isDemo ? "1.847" : "0",
+    ctr: isDemo ? "4.08%" : "0.00%",
+    cpl: isDemo ? "R$ 18,50" : "R$ 0,00",
+    leads: isDemo ? "234" : "0",
+    investment: isDemo ? "R$ 4.329" : "R$ 0"
+  };
 
   return (
     <div className="p-4 lg:p-6 space-y-6">
@@ -52,12 +66,12 @@ export default function Announcements() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <KPICard title="Impressões" value="45.280" icon={Eye} color="primary" />
-        <KPICard title="Cliques" value="1.847" icon={MousePointer} color="primary" />
-        <KPICard title="CTR" value="4.08%" icon={Target} color="success" />
-        <KPICard title="Custo por Lead" value="R$ 18,50" icon={DollarSign} color="warning" />
-        <KPICard title="Leads Gerados" value="234" icon={Users} color="success" />
-        <KPICard title="Investimento" value="R$ 4.329" icon={TrendingUp} color="purple" />
+        <KPICard title="Impressões" value={kpis.impressions} icon={Eye} color="primary" />
+        <KPICard title="Cliques" value={kpis.clicks} icon={MousePointer} color="primary" />
+        <KPICard title="CTR" value={kpis.ctr} icon={Target} color="success" />
+        <KPICard title="Custo por Lead" value={kpis.cpl} icon={DollarSign} color="warning" />
+        <KPICard title="Leads Gerados" value={kpis.leads} icon={Users} color="success" />
+        <KPICard title="Investimento" value={kpis.investment} icon={TrendingUp} color="purple" />
       </div>
 
       {/* Chart */}
@@ -65,27 +79,33 @@ export default function Announcements() {
         <h2 className="text-lg font-semibold text-card-foreground mb-4">Performance por Campanha</h2>
         <div className="h-64 lg:h-80">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={campaignPerformance} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-              <YAxis 
-                dataKey="name" 
-                type="category" 
-                stroke="hsl(var(--muted-foreground))" 
-                fontSize={12}
-                width={100}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
-              <Legend />
-              <Bar dataKey="leads" name="Leads" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-              <Bar dataKey="cost" name="Custo (R$)" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} />
-            </BarChart>
+            {displayPerformance.length > 0 ? (
+              <BarChart data={displayPerformance} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  width={100}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Legend />
+                <Bar dataKey="leads" name="Leads" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="cost" name="Custo (R$)" fill="hsl(var(--warning))" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground italic">
+                Sem dados de performance para o período.
+              </div>
+            )}
           </ResponsiveContainer>
         </div>
       </div>
@@ -109,35 +129,43 @@ export default function Announcements() {
               </tr>
             </thead>
             <tbody>
-              {campaigns.map((campaign, index) => (
-                <tr
-                  key={campaign.id}
-                  className={cn(
-                    'border-b last:border-0 hover:bg-muted/30 transition-colors',
-                    index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'
-                  )}
-                >
-                  <td className="p-4">
-                    <span className="font-medium text-card-foreground">{campaign.name}</span>
-                  </td>
-                  <td className="p-4">
-                    <StatusBadge status={campaign.status} />
-                  </td>
-                  <td className="p-4 text-right text-muted-foreground">
-                    {campaign.impressions.toLocaleString('pt-BR')}
-                  </td>
-                  <td className="p-4 text-right text-muted-foreground">
-                    {campaign.clicks.toLocaleString('pt-BR')}
-                  </td>
-                  <td className="p-4 text-right font-medium text-card-foreground">{campaign.leads}</td>
-                  <td className="p-4 text-right text-muted-foreground">
-                    R$ {campaign.cost.toLocaleString('pt-BR')}
-                  </td>
-                  <td className="p-4 text-right font-medium text-card-foreground">
-                    R$ {campaign.cpl.toFixed(2)}
+              {displayCampaigns.length > 0 ? (
+                displayCampaigns.map((campaign, index) => (
+                  <tr
+                    key={campaign.id}
+                    className={cn(
+                      'border-b last:border-0 hover:bg-muted/30 transition-colors',
+                      index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'
+                    )}
+                  >
+                    <td className="p-4">
+                      <span className="font-medium text-card-foreground">{campaign.name}</span>
+                    </td>
+                    <td className="p-4">
+                      <StatusBadge status={campaign.status} />
+                    </td>
+                    <td className="p-4 text-right text-muted-foreground">
+                      {campaign.impressions.toLocaleString('pt-BR')}
+                    </td>
+                    <td className="p-4 text-right text-muted-foreground">
+                      {campaign.clicks.toLocaleString('pt-BR')}
+                    </td>
+                    <td className="p-4 text-right font-medium text-card-foreground">{campaign.leads}</td>
+                    <td className="p-4 text-right text-muted-foreground">
+                      R$ {campaign.cost.toLocaleString('pt-BR')}
+                    </td>
+                    <td className="p-4 text-right font-medium text-card-foreground">
+                      R$ {campaign.cpl.toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="p-10 text-center text-muted-foreground animate-pulse">
+                    Nenhuma campanha ativa no momento.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

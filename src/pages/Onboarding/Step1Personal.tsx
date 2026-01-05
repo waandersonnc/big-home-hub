@@ -6,11 +6,13 @@ import { ImageUpload } from '@/components/ImageUpload';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
+import { logger } from '@/lib/logger';
+import type { OnboardingPersonalData } from '@/types';
 
 interface Step1Props {
     userId: string;
-    data: any;
-    onUpdate: (val: any) => void;
+    data: OnboardingPersonalData & { profile_photo_url?: string };
+    onUpdate: (val: Partial<OnboardingPersonalData & { profile_photo_url?: string }>) => void;
     onNext: () => void;
 }
 
@@ -28,7 +30,7 @@ export default function Step1Personal({ userId, data, onUpdate, onNext }: Step1P
 
     const handleCpfCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value.replace(/\D/g, '').substring(0, 14);
-        onUpdate({ cpf_cnpj: value }); // store cleaned
+        onUpdate({ cpf: value }); // store cleaned
     };
 
     const handleSubmit = async () => {
@@ -38,17 +40,19 @@ export default function Step1Personal({ userId, data, onUpdate, onNext }: Step1P
                 .from('owners')
                 .update({
                     profile_photo_url: data.profile_photo_url || '',
-                    cpf_cnpj: data.cpf_cnpj,
+                    cpf_cnpj: data.cpf,
                     personal_data_completed: true
                 })
                 .eq('id', userId);
 
             if (error) throw error;
             onNext();
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao salvar dados pessoais:', err.message);
             toast({
                 title: "Erro ao salvar",
-                description: error.message,
+                description: err.message,
                 variant: "destructive",
             });
         } finally {
@@ -76,7 +80,7 @@ export default function Step1Personal({ userId, data, onUpdate, onNext }: Step1P
                 <Input
                     id="cpf_cnpj"
                     placeholder="000.000.000-00 ou 00.000.000/0000-00"
-                    value={formatCpfCnpj(data.cpf_cnpj)}
+                    value={formatCpfCnpj(data.cpf || '')}
                     onChange={handleCpfCnpjChange}
                     className="text-lg h-12"
                 />

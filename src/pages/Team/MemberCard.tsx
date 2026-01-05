@@ -1,11 +1,13 @@
-import { Mail, Phone, UserCog, User, ShieldSwitch } from 'lucide-react';
+import { Mail, Phone, UserCog, User, RefreshCw } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 
+import type { TeamMemberDisplay } from '@/types';
+
 interface MemberCardProps {
-    member: any;
+    member: TeamMemberDisplay & { manager?: { full_name: string } };
     onUpdate: () => void;
 }
 
@@ -18,12 +20,18 @@ export default function MemberCard({ member, onUpdate }: MemberCardProps) {
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-4">
                         <Avatar className="h-14 w-14 border-2 border-primary/10">
-                            <AvatarFallback className="bg-primary/5 text-primary font-bold text-xl uppercase">
-                                {member.full_name.substring(0, 2)}
-                            </AvatarFallback>
+                            {member.photo_url ? (
+                                <img src={member.photo_url} alt={member.full_name || 'Usuário'} className="h-full w-full object-cover" />
+                            ) : (
+                                <div className="h-full w-full p-2 bg-primary/5 flex items-center justify-center">
+                                    <img src="/logo.png" alt="BigHome Logo" className="h-8 w-8 object-contain" />
+                                </div>
+                            )}
                         </Avatar>
                         <div>
-                            <h3 className="font-bold text-lg group-hover:text-primary transition-colors">{member.full_name}</h3>
+                            <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
+                                {member.full_name || 'Nome Usuário'}
+                            </h3>
                             <Badge variant="outline" className="mt-1 gap-1 py-0 px-2 h-5 text-[10px] uppercase font-bold tracking-wider">
                                 {isBroker ? <User size={10} /> : <UserCog size={10} />}
                                 {isBroker ? 'Corretor' : 'Gerente'}
@@ -47,7 +55,7 @@ export default function MemberCard({ member, onUpdate }: MemberCardProps) {
                             <div className="flex items-center justify-between">
                                 <span className="text-foreground font-medium">{member.manager?.full_name || 'Não atribuído'}</span>
                                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-primary gap-1 hover:bg-primary/5">
-                                    <ShieldSwitch size={12} />
+                                    <RefreshCw size={12} />
                                     Trocar
                                 </Button>
                             </div>

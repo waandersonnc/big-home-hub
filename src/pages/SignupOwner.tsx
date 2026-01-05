@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { authService } from '@/services/auth.service';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
+import type { SignupFormData } from '@/types';
 
 // Steps
 import Step1Name from '@/components/SignupWizard/Step1Name';
@@ -19,12 +21,12 @@ export default function SignupOwner() {
     const { toast } = useToast();
     const [currentStep, setCurrentStep] = useState(1);
     const [isLoading, setIsLoading] = useState(false);
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<SignupFormData>({
         full_name: '',
         phone: '',
         email: '',
         password: '',
-        password_confirmation: '',
+        confirmPassword: '',
     });
     const [userId, setUserId] = useState<string | null>(null);
 
@@ -45,7 +47,7 @@ export default function SignupOwner() {
 
     const handleCreateAccount = async () => {
         setIsLoading(true);
-        console.log("Creating account with formData:", formData);
+        logger.debug("Criando conta para owner");
         try {
             const user = await authService.signUp(formData.email, formData.password, {
                 full_name: formData.full_name,
@@ -64,10 +66,11 @@ export default function SignupOwner() {
 
             // Avançar para etapa de verificação
             setCurrentStep(5);
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
             toast({
                 title: "Erro ao criar conta",
-                description: error.message || "Verifique seus dados e tente novamente.",
+                description: err.message || "Verifique seus dados e tente novamente.",
                 variant: "destructive",
             });
         } finally {
@@ -97,10 +100,11 @@ export default function SignupOwner() {
             });
 
             // Redirecionar para dashboard ou onboarding posterior
-            navigate('/dashboard');
+            navigate('/painel');
 
-        } catch (error: any) {
-            console.error('Verify error:', error);
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao verificar código:', err.message);
             toast({
                 title: "Código inválido",
                 description: "O código digitado está incorreto ou expirou.",
@@ -118,7 +122,7 @@ export default function SignupOwner() {
                 <div className="space-y-4">
                     <Button
                         variant="ghost"
-                        onClick={currentStep === 1 ? () => navigate('/signup') : prevStep}
+                        onClick={currentStep === 1 ? () => navigate('/cadastro') : prevStep}
                         className="p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground transition-colors"
                         disabled={currentStep === 5} // Não voltar da etapa de verificação
                     >
@@ -188,7 +192,7 @@ export default function SignupOwner() {
                         <div className="flex justify-between pt-8 border-t mt-8">
                             <Button
                                 variant="outline"
-                                onClick={currentStep === 1 ? () => navigate('/signup') : prevStep}
+                                onClick={currentStep === 1 ? () => navigate('/cadastro') : prevStep}
                                 disabled={isLoading}
                             >
                                 Anterior
@@ -224,12 +228,12 @@ export default function SignupOwner() {
     );
 }
 
-function isStepValid(step: number, data: any) {
+function isStepValid(step: number, data: SignupFormData): boolean {
     switch (step) {
         case 1: return data.full_name.length >= 3;
         case 2: return data.phone.length >= 14; // (XX) XXXXX-XXXX
         case 3: return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email);
-        case 4: return data.password.length >= 8 && data.password === data.password_confirmation;
+        case 4: return data.password.length >= 8 && data.password === data.confirmPassword;
         default: return false;
     }
 }

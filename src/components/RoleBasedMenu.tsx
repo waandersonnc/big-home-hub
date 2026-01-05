@@ -51,15 +51,15 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
 
     const menuItems = [
         {
-            name: 'All Dash',
-            path: '/all-dash',
+            name: 'Visão Geral',
+            path: '/visao-geral',
             icon: BarChart3,
             visible: role === 'owner' && companies.length > 1
         },
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, visible: true },
+        { name: 'Painel', path: '/painel', icon: LayoutDashboard, visible: true },
         { name: 'Equipe', path: '/equipe', icon: Users, visible: role !== 'broker' },
         { name: 'Imóveis', path: '/imoveis', icon: Building2, visible: role === 'owner' },
-        { name: 'Leads', path: '/leads', icon: Target, visible: true },
+        { name: 'Oportunidades', path: '/oportunidades', icon: Target, visible: true },
         { name: 'Movimentação', path: '/movimentacao', icon: Kanban, visible: true },
         { name: 'Financeiro', path: '/financeiro', icon: DollarSign, visible: true },
         { name: 'Agentes', path: '/agentes', icon: Bot, visible: role === 'owner' },

@@ -8,11 +8,13 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, Search, MapPin, Building } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { logger } from '@/lib/logger';
+import type { OnboardingCompanyData, CompanyData } from '@/types';
 
 interface Step3Props {
     userId: string;
-    data: any;
-    onUpdate: (val: any) => void;
+    data: OnboardingCompanyData & { company_count: number };
+    onUpdate: (val: Partial<OnboardingCompanyData & { company_count: number }>) => void;
     onNext: () => void;
     onBack: () => void;
 }
@@ -38,7 +40,7 @@ export default function Step3Companies({ userId, data, onUpdate, onNext, onBack 
         address_state: '',
     };
 
-    const updateCompany = (val: any) => {
+    const updateCompany = (val: Partial<CompanyData>) => {
         const newCompanies = [...companies];
         newCompanies[currentIdx] = { ...currentCompany, ...val };
         onUpdate({ companies: newCompanies });
@@ -55,8 +57,10 @@ export default function Step3Companies({ userId, data, onUpdate, onNext, onBack 
                 address_city: addr.localidade,
                 address_state: addr.uf,
             });
-        } catch (error: any) {
-            toast({ title: "Erro no CEP", description: error.message, variant: "destructive" });
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao buscar CEP:', err.message);
+            toast({ title: "Erro no CEP", description: err.message, variant: "destructive" });
         } finally {
             setIsSearchingCep(false);
         }
@@ -89,8 +93,10 @@ export default function Step3Companies({ userId, data, onUpdate, onNext, onBack 
                 if (ownerError) throw ownerError;
 
                 onNext();
-            } catch (error: any) {
-                toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
+            } catch (error) {
+                const err = error as Error;
+                logger.error('Erro ao salvar empresas:', err.message);
+                toast({ title: "Erro ao salvar", description: err.message, variant: "destructive" });
             } finally {
                 setIsLoading(false);
             }

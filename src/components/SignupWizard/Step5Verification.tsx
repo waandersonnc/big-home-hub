@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { authService } from '@/services/auth.service';
+import { useToast } from '@/components/ui/use-toast';
+import { logger } from '@/lib/logger';
 
 interface Step5VerificationProps {
     email: string;
@@ -16,6 +18,7 @@ export default function Step5Verification({ email, full_name, phone, onVerify, i
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [resending, setResending] = useState(false);
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+    const { toast } = useToast();
 
     useEffect(() => {
         // Focus first input on mount
@@ -70,29 +73,37 @@ export default function Step5Verification({ email, full_name, phone, onVerify, i
 
     const handleResend = async () => {
         if (!full_name || !phone) {
-            alert('Dados incompletos para reenvio via webhook. Tente recarregar a página.');
+            toast({
+                title: "Dados incompletos",
+                description: "Não foi possível reenviar o código. Tente recarregar a página.",
+                variant: "destructive"
+            });
             return;
         }
 
         setResending(true);
         try {
-            // Get user ID from current session if possible, or we might need it passed as prop too.
-            // However, after signup, the user IS signed in but maybe not confirmed? 
-            // Supabase session usually exists. Let's check session first.
             const { data: { session } } = await supabase.auth.getSession();
             const userId = session?.user?.id;
 
             if (!userId) {
-                // Should not happen if flow is correct (signup logs you in usually, or returns user object)
                 throw new Error("Usuário não identificado. Faça login novamente.");
             }
 
             await authService.resendCode(email, full_name, phone, userId);
 
-            alert('Código reenviado e confirmado pelo sistema!');
-        } catch (error: any) {
-            console.error('Error resending code:', error);
-            alert(error.message || 'Erro ao reenviar código. Tente novamente em instantes.');
+            toast({
+                title: "Código reenviado!",
+                description: "Verifique seu e-mail.",
+            });
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao reenviar código:', err.message);
+            toast({
+                title: "Erro ao reenviar",
+                description: err.message || 'Tente novamente em instantes.',
+                variant: "destructive"
+            });
         } finally {
             setResending(false);
         }

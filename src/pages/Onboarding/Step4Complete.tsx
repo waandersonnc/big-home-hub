@@ -3,15 +3,20 @@ import { Card } from '@/components/ui/card';
 import { PartyPopper, CheckCircle2, Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
+import { useToast } from '@/components/ui/use-toast';
 
 interface Step4Props {
     userId: string;
-    data: any;
+    data: {
+        company_count: number;
+    };
     onFinish: () => void;
 }
 
 export default function Step4Complete({ userId, data, onFinish }: Step4Props) {
     const [isLoading, setIsLoading] = useState(false);
+    const { toast } = useToast();
 
     const handleComplete = async () => {
         setIsLoading(true);
@@ -24,7 +29,13 @@ export default function Step4Complete({ userId, data, onFinish }: Step4Props) {
             if (error) throw error;
             onFinish();
         } catch (error) {
-            console.error(error);
+            const err = error as Error;
+            logger.error('Erro ao finalizar onboarding:', err.message);
+            toast({
+                title: "Erro ao finalizar",
+                description: "Tente novamente.",
+                variant: "destructive"
+            });
         } finally {
             setIsLoading(false);
         }

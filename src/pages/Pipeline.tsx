@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { leads as initialLeads, Lead, teamMembers, properties } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { demoStore } from '@/lib/demoStore';
 
 type PipelineColumn = Lead['status'];
 
@@ -31,7 +32,8 @@ const columns: { id: PipelineColumn; title: string; color: string }[] = [
 ];
 
 export default function Pipeline() {
-  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const isDemo = demoStore.isActive;
+  const [leads, setLeads] = useState<Lead[]>(isDemo ? initialLeads : []);
   const [searchQuery, setSearchQuery] = useState('');
   const [agentFilter, setAgentFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);

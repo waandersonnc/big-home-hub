@@ -20,19 +20,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { properties, Property } from '@/data/mockData';
+import { properties as initialProperties, Property } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { demoStore } from '@/lib/demoStore';
 
 type TypeFilter = 'all' | Property['type'];
 type StatusFilter = 'all' | Property['status'];
 
 export default function Properties() {
+  const isDemo = demoStore.isActive;
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const filteredProperties = properties.filter((property) => {
+  const displayProperties = isDemo ? initialProperties : [];
+
+  const filteredProperties = displayProperties.filter((property) => {
     const matchesType = typeFilter === 'all' || property.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
     const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase());

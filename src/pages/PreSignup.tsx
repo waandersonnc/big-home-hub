@@ -37,7 +37,7 @@ export default function PreSignup() {
         if (profile.soon) {
             setComingSoonTitle(profile.title);
         } else if (profile.id === 'agency') {
-            navigate('/signup/owner');
+            navigate('/cadastro/dono');
         }
     };
 

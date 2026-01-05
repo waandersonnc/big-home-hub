@@ -2,10 +2,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
+import type { SignupFormData } from '@/types';
 
 interface Step4Props {
-    formData: any;
-    onChange: (data: any) => void;
+    formData: SignupFormData;
+    onChange: (data: Partial<SignupFormData>) => void;
     onSubmit: () => void;
     isLoading: boolean;
 }
@@ -16,7 +17,7 @@ export default function Step4Password({ formData, onChange, onSubmit, isLoading 
     const hasLength = formData.password.length >= 8;
     const hasUpper = /[A-Z]/.test(formData.password);
     const hasNumber = /[0-9]/.test(formData.password);
-    const matches = formData.password && formData.password === formData.password_confirmation;
+    const matches = formData.password && formData.password === formData.confirmPassword;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,14 +49,14 @@ export default function Step4Password({ formData, onChange, onSubmit, isLoading 
                 </div>
 
                 <div className="space-y-2">
-                    <Label htmlFor="password_confirmation">Confirme sua senha</Label>
+                    <Label htmlFor="confirmPassword">Confirme sua senha</Label>
                     <Input
-                        id="password_confirmation"
+                        id="confirmPassword"
                         type="password"
                         placeholder="••••••••"
-                        value={formData.password_confirmation}
-                        onChange={(e) => onChange({ password_confirmation: e.target.value })}
-                        className={`h-12 ${formData.password_confirmation && !matches ? 'border-destructive' : ''}`}
+                        value={formData.confirmPassword || ''}
+                        onChange={(e) => onChange({ confirmPassword: e.target.value })}
+                        className={`h-12 ${formData.confirmPassword && !matches ? 'border-destructive' : ''}`}
                     />
                 </div>
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
+import { logger } from '@/lib/logger';
 
 export default function EmailConfirmation() {
     const navigate = useNavigate();
@@ -70,10 +71,12 @@ export default function EmailConfirmation() {
             });
 
             navigate('/onboarding');
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao confirmar e-mail:', err.message);
             toast({
                 title: "Código inválido",
-                description: error.message || "Por favor, verifique o código enviado no seu e-mail.",
+                description: err.message || "Por favor, verifique o código enviado no seu e-mail.",
                 variant: "destructive",
             });
         } finally {
@@ -97,10 +100,12 @@ export default function EmailConfirmation() {
                 description: "Verifique sua caixa de entrada.",
             });
             setCooldown(60);
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao reenviar código:', err.message);
             toast({
                 title: "Erro ao reenviar",
-                description: error.message,
+                description: err.message,
                 variant: "destructive",
             });
         }

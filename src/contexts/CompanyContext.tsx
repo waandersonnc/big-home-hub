@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { demoStore } from '@/lib/demoStore';
+import { logger } from '@/lib/logger';
 
 interface Company {
     id: string;
@@ -82,7 +83,8 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
                     }
                 }
             } catch (error) {
-                console.error('Error fetching companies:', error);
+                const err = error as Error;
+                logger.error('Erro ao buscar empresas:', err.message);
             } finally {
                 if (isMounted) setIsLoading(false);
             }

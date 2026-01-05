@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { storageService } from '@/services/storage.service';
 import { useToast } from '@/components/ui/use-toast';
+import { logger } from '@/lib/logger';
 
 interface ImageUploadProps {
     onUpload: (url: string) => void;
@@ -62,10 +63,12 @@ export function ImageUpload({ onUpload, defaultImage, type, userId, companyId }:
 
             onUpload(url);
             toast({ title: "Upload concluído!" });
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro no upload de imagem:', err.message);
             toast({
                 title: "Erro no upload",
-                description: error.message || "Não foi possível enviar a imagem.",
+                description: err.message || "Não foi possível enviar a imagem.",
                 variant: "destructive",
             });
             setPreview(defaultImage || null);

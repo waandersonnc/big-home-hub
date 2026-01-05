@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { Loader2, Lock, ShieldCheck } from 'lucide-react';
+import { logger } from '@/lib/logger';
 
 export default function ResetPassword() {
     const [password, setPassword] = useState('');
@@ -41,9 +42,11 @@ export default function ResetPassword() {
             }
 
             toast({ title: "Senha definida!", description: "Sua conta agora está segura." });
-            navigate('/dashboard');
-        } catch (error: any) {
-            toast({ title: "Erro ao definir senha", description: error.message, variant: "destructive" });
+            navigate('/painel');
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao redefinir senha:', err.message);
+            toast({ title: "Erro ao definir senha", description: err.message, variant: "destructive" });
         } finally {
             setIsLoading(false);
         }

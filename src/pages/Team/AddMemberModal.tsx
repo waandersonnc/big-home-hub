@@ -17,12 +17,14 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { logger } from '@/lib/logger';
+import type { TeamMemberDisplay } from '@/types';
 
 interface AddMemberModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    managers: any[];
+    managers: TeamMemberDisplay[];
 }
 
 export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }: AddMemberModalProps) {
@@ -40,6 +42,11 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
     });
 
     const handleCreate = async () => {
+        if (!owner) {
+            toast({ title: "Sessão inválida", description: "Por favor faça login novamente.", variant: "destructive" });
+            return;
+        }
+
         if (!formData.full_name || !formData.email || !formData.phone) {
             toast({ title: "Preencha todos os campos", variant: "destructive" });
             return;
@@ -54,7 +61,7 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
         try {
             await teamService.createMember({
                 ...formData,
-                real_estate_company_id: selectedCompanyId!,
+                company_id: selectedCompanyId!,
                 owner_id: owner.id
             });
 
@@ -65,10 +72,12 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
             onSuccess();
             onClose();
             setFormData({ full_name: '', email: '', phone: '', user_type: 'manager', manager_id: '' });
-        } catch (error: any) {
+        } catch (error) {
+            const err = error as Error;
+            logger.error('Erro ao criar membro da equipe:', err.message);
             toast({
                 title: "Erro ao criar membro",
-                description: error.message || "Verifique se o e-mail já está em uso.",
+                description: err.message || "Verifique se o e-mail já está em uso.",
                 variant: "destructive"
             });
         } finally {

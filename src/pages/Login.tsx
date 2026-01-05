@@ -19,7 +19,7 @@ export default function Login() {
     // Active memory-only demo state
     demoStore.activate();
 
-    navigate('/dashboard');
+    navigate('/painel');
     toast({
       title: "Modo Demonstrativo",
       description: "Você está acessando uma versão de demonstração.",
@@ -178,7 +178,7 @@ export default function Login() {
             <p className="text-center text-sm text-muted-foreground pt-4">
               Não tem uma conta?{' '}
               <button
-                onClick={() => navigate('/signup')}
+                onClick={() => navigate('/cadastro')}
                 className="text-primary font-semibold hover:underline"
               >
                 Criar conta
