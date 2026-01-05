@@ -26,6 +26,7 @@ export default function SignupOwner() {
         password: '',
         password_confirmation: '',
     });
+    const [userId, setUserId] = useState<string | null>(null);
 
     const totalSteps = 5;
     const progress = (currentStep / totalSteps) * 100;
@@ -45,11 +46,15 @@ export default function SignupOwner() {
     const handleCreateAccount = async () => {
         setIsLoading(true);
         try {
-            await authService.signUp(formData.email, formData.password, {
+            const user = await authService.signUp(formData.email, formData.password, {
                 full_name: formData.full_name,
                 phone: formData.phone,
                 email: formData.email,
             });
+
+            if (user?.id) {
+                setUserId(user.id);
+            }
 
             toast({
                 title: "Conta criada com sucesso!",
@@ -72,17 +77,22 @@ export default function SignupOwner() {
     const handleVerifyCode = async (code: string) => {
         setIsLoading(true);
         try {
-            const { error } = await supabase.auth.verifyOtp({
-                email: formData.email,
-                token: code,
-                type: 'signup'
-            });
+            // Use stored userId or fetch from session fallback
+            let idToVerify = userId;
+            if (!idToVerify) {
+                const { data: { user } } = await supabase.auth.getUser();
+                idToVerify = user?.id || null;
+            }
 
-            if (error) throw error;
+            if (!idToVerify) {
+                throw new Error("Usuário não identificado. Tente fazer login novamente.");
+            }
+
+            await authService.verifyOwnerToken(idToVerify, code);
 
             toast({
-                title: "E-mail verificado!",
-                description: "Sua conta foi ativada com sucesso.",
+                title: "Conta verificada!",
+                description: "Seja bem-vindo ao BigHome Hub.",
             });
 
             // Redirecionar para dashboard ou onboarding posterior
@@ -164,6 +174,8 @@ export default function SignupOwner() {
                         {currentStep === 5 && (
                             <Step5Verification
                                 email={formData.email}
+                                full_name={formData.full_name}
+                                phone={formData.phone}
                                 onVerify={handleVerifyCode}
                                 isLoading={isLoading}
                             />

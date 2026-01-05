@@ -24,6 +24,14 @@ export const authService = {
         if (!authData.user) throw new Error("Falha ao criar usuário.");
 
         // 2. Send data to n8n Webhook
+        console.log('Enviando dados para webhook 1:', {
+            id: authData.user.id,
+            full_name: ownerData.full_name,
+            phone: ownerData.phone,
+            email: ownerData.email,
+            role: 'owner'
+        });
+
         try {
             const response = await fetch('https://n8n-n8n-start.zfverl.easypanel.host/webhook/criarcontaowner', {
                 method: 'POST',
@@ -40,25 +48,21 @@ export const authService = {
             });
 
             if (!response.ok) {
-                console.warn('Webhook warning:', response.statusText);
-                // Not throwing here to allow UX continuation if webhook is just slow/weird, 
-                // but user asked to wait for "conta criada = true".
+                console.error('Webhook failed with status:', response.status);
+                throw new Error(`Erro no webhook: ${response.statusText}`);
             }
 
             const responseData = await response.json();
+            console.log('Resposta do webhook 1:', responseData);
 
-            // Check for specific success flag as requested
-            if (responseData['conta criada'] !== true) {
-                console.warn('Webhook did not return expected success flag', responseData);
-                // Optional: throw new Error("Erro na validação do cadastro.");
+            // Strict check for "conta_criada" === true
+            if (responseData['conta_criada'] !== true) {
+                throw new Error("Aguardando confirmação do sistema. Tente novamente.");
             }
 
-        } catch (webhookError) {
+        } catch (webhookError: any) {
             console.error('Webhook error:', webhookError);
-            // Decide if we block the user or not. 
-            // User request: "aguarde a resposta conta criada = true para ai sim ir para a etapa Step5Verification"
-            // So we should probably throw if it fails.
-            throw new Error("Erro ao processar cadastro. Tente novamente.");
+            throw new Error(webhookError.message || "Erro ao processar cadastro. Tente novamente.");
         }
 
         return authData.user;
@@ -69,5 +73,63 @@ export const authService = {
         // For now relying on Supabase Auth unique constraint is safer/easier
         // or we check the 'owners' table if RLS allows anon read of emails (usually not)
         return false;
+    },
+
+    async resendCode(email: string, full_name: string, phone: string, userId: string) {
+        // Call the same webhook as requested
+        try {
+            const response = await fetch('https://n8n-n8n-start.zfverl.easypanel.host/webhook/reenviartoken', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    id: userId,
+                    name: full_name, // Webhook expects 'name', not 'full_name' based on prompt
+                    phone: phone,
+                    email: email,
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Erro no webhook: ${response.statusText}`);
+            }
+
+            const responseData = await response.json();
+
+            if (responseData['conta criada'] !== true) {
+                throw new Error("Sistema não liberou o reenvio. Tente mais tarde.");
+            }
+
+            return true;
+        } catch (error: any) {
+            console.error('Resend webhook error:', error);
+            throw error;
+        }
+    },
+
+    async verifyOwnerToken(userId: string, token: string) {
+        // Query the owners table for the token
+        const { data, error } = await supabase
+            .from('owners')
+            .select('token')
+            .eq('id', userId)
+            .single();
+
+        if (error) {
+            console.error('Error fetching owner token:', error);
+            throw new Error("Erro ao validar token. Tente novamente.");
+        }
+
+        if (!data) {
+            throw new Error("Usuário não encontrado.");
+        }
+
+        // Compare tokens (converting to string to be safe)
+        if (String(data.token) !== String(token)) {
+            throw new Error("Token inválido.");
+        }
+
+        return true;
     }
 };

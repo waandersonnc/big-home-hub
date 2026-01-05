@@ -2,14 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { authService } from '@/services/auth.service';
 
 interface Step5VerificationProps {
     email: string;
+    full_name?: string;
+    phone?: string;
     onVerify: (code: string) => Promise<void>;
     isLoading: boolean;
 }
 
-export default function Step5Verification({ email, onVerify, isLoading }: Step5VerificationProps) {
+export default function Step5Verification({ email, full_name, phone, onVerify, isLoading }: Step5VerificationProps) {
     const [code, setCode] = useState(['', '', '', '', '', '']);
     const [resending, setResending] = useState(false);
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -44,17 +47,30 @@ export default function Step5Verification({ email, onVerify, isLoading }: Step5V
     };
 
     const handleResend = async () => {
+        if (!full_name || !phone) {
+            alert('Dados incompletos para reenvio via webhook. Tente recarregar a página.');
+            return;
+        }
+
         setResending(true);
         try {
-            const { error } = await supabase.auth.resend({
-                type: 'signup',
-                email: email
-            });
-            if (error) throw error;
-            alert('Código reenviado! Verifique seu e-mail.');
+            // Get user ID from current session if possible, or we might need it passed as prop too.
+            // However, after signup, the user IS signed in but maybe not confirmed? 
+            // Supabase session usually exists. Let's check session first.
+            const { data: { session } } = await supabase.auth.getSession();
+            const userId = session?.user?.id;
+
+            if (!userId) {
+                // Should not happen if flow is correct (signup logs you in usually, or returns user object)
+                throw new Error("Usuário não identificado. Faça login novamente.");
+            }
+
+            await authService.resendCode(email, full_name, phone, userId);
+
+            alert('Código reenviado e confirmado pelo sistema!');
         } catch (error: any) {
             console.error('Error resending code:', error);
-            alert('Erro ao reenviar código. Tente novamente em instantes.');
+            alert(error.message || 'Erro ao reenviar código. Tente novamente em instantes.');
         } finally {
             setResending(false);
         }
