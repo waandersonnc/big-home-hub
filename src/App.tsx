@@ -40,6 +40,7 @@ const App = () => (
             <Route path="/confirm-email" element={<EmailConfirmation />} />
             <Route path="/onboarding" element={<OnboardingWizard />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+
             <Route element={<OnboardingGuard />}>
               <Route element={<AppShell />}>
                 <Route path="/all-dash" element={<AllDash />} />
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/agentes" element={<Agents />} />
               </Route>
             </Route>
+
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

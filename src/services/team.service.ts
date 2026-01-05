@@ -6,7 +6,7 @@ export interface TeamMemberData {
     phone: string;
     user_type: 'manager' | 'broker';
     manager_id?: string;
-    real_estate_company_id: string;
+    company_id: string;
     owner_id: string;
 }
 
@@ -16,7 +16,7 @@ export const teamService = {
             .from('users')
             .select('*')
             .eq('user_type', 'manager')
-            .eq('real_estate_company_id', companyId);
+            .eq('company_id', companyId);
 
         if (error) throw error;
         return data;
@@ -27,7 +27,7 @@ export const teamService = {
             .from('users')
             .select('*, manager:manager_id(full_name)')
             .eq('user_type', 'broker')
-            .eq('real_estate_company_id', companyId);
+            .eq('company_id', companyId);
 
         if (error) throw error;
         return data;

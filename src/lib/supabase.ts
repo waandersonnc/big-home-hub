@@ -1,11 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Support both Vite (import.meta.env) and Node (process.env)
-const supabaseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL
-const supabaseAnonKey = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Missing Supabase environment variables. Please check .env.local')
+    console.warn('Supabase URL ou Anon Key não configuradas! Verifique o arquivo .env.local')
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '')
+export const supabase = createClient(
+    supabaseUrl || '',
+    supabaseAnonKey || ''
+)

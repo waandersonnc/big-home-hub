@@ -5,12 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { authService } from '@/services/auth.service';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
 
 // Steps
 import Step1Name from '@/components/SignupWizard/Step1Name';
 import Step2Phone from '@/components/SignupWizard/Step2Phone';
 import Step3Email from '@/components/SignupWizard/Step3Email';
 import Step4Password from '@/components/SignupWizard/Step4Password';
+import Step5Verification from '@/components/SignupWizard/Step5Verification';
 
 export default function SignupOwner() {
     const navigate = useNavigate();
@@ -25,7 +27,7 @@ export default function SignupOwner() {
         password_confirmation: '',
     });
 
-    const totalSteps = 4;
+    const totalSteps = 5;
     const progress = (currentStep / totalSteps) * 100;
 
     const updateFormData = (data: Partial<typeof formData>) => {
@@ -40,7 +42,7 @@ export default function SignupOwner() {
         if (currentStep > 1) setCurrentStep(currentStep - 1);
     };
 
-    const handleSubmit = async () => {
+    const handleCreateAccount = async () => {
         setIsLoading(true);
         try {
             await authService.signUp(formData.email, formData.password, {
@@ -51,14 +53,46 @@ export default function SignupOwner() {
 
             toast({
                 title: "Conta criada com sucesso!",
-                description: "Enviamos um código de confirmação para seu e-mail.",
+                description: "Verifique seu e-mail para continuar.",
             });
 
-            navigate('/confirm-email', { state: { email: formData.email } });
+            // Avançar para etapa de verificação
+            setCurrentStep(5);
         } catch (error: any) {
             toast({
                 title: "Erro ao criar conta",
                 description: error.message || "Verifique seus dados e tente novamente.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleVerifyCode = async (code: string) => {
+        setIsLoading(true);
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                email: formData.email,
+                token: code,
+                type: 'signup'
+            });
+
+            if (error) throw error;
+
+            toast({
+                title: "E-mail verificado!",
+                description: "Sua conta foi ativada com sucesso.",
+            });
+
+            // Redirecionar para dashboard ou onboarding posterior
+            navigate('/dashboard');
+
+        } catch (error: any) {
+            console.error('Verify error:', error);
+            toast({
+                title: "Código inválido",
+                description: "O código digitado está incorreto ou expirou.",
                 variant: "destructive",
             });
         } finally {
@@ -75,6 +109,7 @@ export default function SignupOwner() {
                         variant="ghost"
                         onClick={currentStep === 1 ? () => navigate('/signup') : prevStep}
                         className="p-0 h-auto hover:bg-transparent text-muted-foreground hover:text-foreground transition-colors"
+                        disabled={currentStep === 5} // Não voltar da etapa de verificação
                     >
                         <ChevronLeft className="h-4 w-4 mr-1" />
                         {currentStep === 1 ? 'Voltar para perfis' : 'Etapa anterior'}
@@ -122,44 +157,54 @@ export default function SignupOwner() {
                             <Step4Password
                                 formData={formData}
                                 onChange={updateFormData}
-                                onSubmit={handleSubmit}
+                                onSubmit={handleCreateAccount} // Trigger account creation
+                                isLoading={isLoading}
+                            />
+                        )}
+                        {currentStep === 5 && (
+                            <Step5Verification
+                                email={formData.email}
+                                onVerify={handleVerifyCode}
                                 isLoading={isLoading}
                             />
                         )}
                     </div>
 
-                    <div className="flex justify-between pt-8 border-t mt-8">
-                        <Button
-                            variant="outline"
-                            onClick={currentStep === 1 ? () => navigate('/signup') : prevStep}
-                            disabled={isLoading}
-                        >
-                            Anterior
-                        </Button>
+                    {/* Navigation Buttons (Hide on Step 5 as it has its own buttons) */}
+                    {currentStep < 5 && (
+                        <div className="flex justify-between pt-8 border-t mt-8">
+                            <Button
+                                variant="outline"
+                                onClick={currentStep === 1 ? () => navigate('/signup') : prevStep}
+                                disabled={isLoading}
+                            >
+                                Anterior
+                            </Button>
 
-                        {currentStep < totalSteps ? (
-                            <Button
-                                onClick={nextStep}
-                                disabled={!isStepValid(currentStep, formData)}
-                            >
-                                Próximo
-                                <ChevronRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={handleSubmit}
-                                disabled={isLoading || !isStepValid(4, formData)}
-                                className="bg-primary hover:bg-primary-dark text-white gap-2"
-                            >
-                                {isLoading ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Check className="h-4 w-4" />
-                                )}
-                                Finalizar Cadastro
-                            </Button>
-                        )}
-                    </div>
+                            {currentStep < 4 ? (
+                                <Button
+                                    onClick={nextStep}
+                                    disabled={!isStepValid(currentStep, formData)}
+                                >
+                                    Próximo
+                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={handleCreateAccount}
+                                    disabled={isLoading || !isStepValid(4, formData)}
+                                    className="bg-primary hover:bg-primary-dark text-white gap-2"
+                                >
+                                    {isLoading ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Check className="h-4 w-4" />
+                                    )}
+                                    Criar Conta
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
