@@ -45,6 +45,7 @@ export default function SignupOwner() {
 
     const handleCreateAccount = async () => {
         setIsLoading(true);
+        console.log("Creating account with formData:", formData);
         try {
             const user = await authService.signUp(formData.email, formData.password, {
                 full_name: formData.full_name,

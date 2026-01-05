@@ -20,6 +20,11 @@ export const authService = {
             }
         });
 
+        console.log("Supabase SignUp Metadata Sent:", {
+            full_name: ownerData.full_name,
+            phone: ownerData.phone
+        });
+
         if (authError) throw authError;
         if (!authData.user) throw new Error("Falha ao criar usuário.");
 

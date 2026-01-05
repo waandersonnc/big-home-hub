@@ -46,6 +46,28 @@ export default function Step5Verification({ email, full_name, phone, onVerify, i
         }
     };
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        e.preventDefault();
+        const pastedData = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+
+        if (!pastedData) return;
+
+        const newCode = [...code];
+        for (let i = 0; i < pastedData.length; i++) {
+            newCode[i] = pastedData[i];
+        }
+        setCode(newCode);
+
+        // Focus the input after the pasted content or the last input
+        const nextIndex = Math.min(pastedData.length, 5);
+        inputRefs.current[nextIndex]?.focus();
+
+        // Auto-submit if full code is pasted
+        if (pastedData.length === 6) {
+            onVerify(pastedData);
+        }
+    };
+
     const handleResend = async () => {
         if (!full_name || !phone) {
             alert('Dados incompletos para reenvio via webhook. Tente recarregar a página.');
@@ -97,6 +119,7 @@ export default function Step5Verification({ email, full_name, phone, onVerify, i
                         value={digit}
                         onChange={(e) => handleChange(index, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(index, e)}
+                        onPaste={handlePaste}
                         disabled={isLoading}
                         className="w-12 h-14 text-center text-2xl font-bold border-2 border-input rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none transition-all disabled:opacity-50 bg-background"
                     />
