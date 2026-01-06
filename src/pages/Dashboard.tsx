@@ -20,6 +20,7 @@ import { demoStore } from '@/lib/demoStore';
 import { useRole } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { CHART_CONFIG, UI_TEXT } from '@/lib/constants';
+import { HorizontalFunnel } from '@/components/HorizontalFunnel';
 
 const upcomingActivities = [
   { id: 1, type: 'Visita', title: 'Visita Apartamento Garden', time: '14:00', client: 'Roberto Almeida' },
@@ -160,162 +161,14 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex-1 w-full relative z-10">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart
-              data={displayChartData}
-              margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-            >
-              <defs>
-                {/* Gradient for Leads */}
-                <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.8} />
-                  <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.05} />
-                </linearGradient>
-                {/* Gradient for Docs */}
-                <linearGradient id="colorDocs" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.7} />
-                  <stop offset="50%" stopColor="#8b5cf6" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.05} />
-                </linearGradient>
-                {/* Gradient for Sales */}
-                <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.9} />
-                  <stop offset="50%" stopColor="#10b981" stopOpacity={0.5} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.1} />
-                </linearGradient>
-                {/* Gradient for Revenue */}
-                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.8} />
-                  <stop offset="50%" stopColor="#f59e0b" stopOpacity={0.4} />
-                  <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.05} />
-                </linearGradient>
-                {/* Filter removed for performance */}
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="date"
-                stroke="rgba(255,255,255,0.1)"
-                tick={false}
-                tickLine={false}
-                axisLine={false}
-                padding={{ left: 0, right: 0 }}
-              />
-              <YAxis
-                stroke="rgba(255,255,255,0.1)"
-                tick={false}
-                tickLine={false}
-                axisLine={false}
-                yAxisId="left"
-                width={0}
-              />
-              <YAxis
-                stroke="rgba(255,255,255,0.1)"
-                tick={false}
-                tickLine={false}
-                axisLine={false}
-                orientation="right"
-                yAxisId="right"
-                width={0}
-              />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="bg-background/95 backdrop-blur-xl border border-white/20 rounded-2xl p-4 shadow-2xl animate-in fade-in zoom-in duration-200">
-                        <p className="text-sm font-semibold text-foreground/90 mb-3 pb-2 border-b border-white/10">
-                          {payload[0].payload.fullDate}
-                        </p>
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-6">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50" />
-                              <span className="text-xs text-muted-foreground">Leads</span>
-                            </div>
-                            <span className="text-sm font-bold text-blue-400">{payload[0].payload.leads}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-6">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50" />
-                              <span className="text-xs text-muted-foreground">Documentos</span>
-                            </div>
-                            <span className="text-sm font-bold text-purple-400">{payload[0].payload.docs}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-6">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-green-500 shadow-lg shadow-green-500/50" />
-                              <span className="text-xs text-muted-foreground">Vendas</span>
-                            </div>
-                            <span className="text-sm font-bold text-green-400">{payload[0].payload.sales}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-6">
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded-full bg-amber-500 shadow-lg shadow-amber-500/50" />
-                              <span className="text-xs text-muted-foreground">Faturamento</span>
-                            </div>
-                            <span className="text-sm font-bold text-amber-400">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(payload[0].payload.revenue)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              {/* Areas with enhanced styling - dots only on hover */}
-              <Area
-                type="monotoneX"
-                dataKey="leads"
-                stroke="#3b82f6"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorLeads)"
-                isAnimationActive={false}
-                dot={false}
-                activeDot={{ r: 6, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
-                yAxisId="left"
-              />
-              <Area
-                type="monotoneX"
-                dataKey="docs"
-                stroke="#8b5cf6"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorDocs)"
-                isAnimationActive={false}
-                dot={false}
-                activeDot={{ r: 6, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }}
-                yAxisId="left"
-              />
-              <Area
-                type="monotoneX"
-                dataKey="sales"
-                stroke="#10b981"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorSales)"
-                isAnimationActive={false}
-                dot={false}
-                activeDot={{ r: 6, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }}
-                yAxisId="left"
-              />
-              <Area
-                type="monotoneX"
-                dataKey="revenue"
-                stroke="#f59e0b"
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#colorRevenue)"
-                isAnimationActive={false}
-                dot={false}
-                activeDot={{ r: 6, fill: '#f59e0b', stroke: '#fff', strokeWidth: 2 }}
-                yAxisId="right"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+        <div className="flex-1 w-full relative z-10 flex items-center justify-center py-4">
+          <HorizontalFunnel
+            data={{
+              leads: parseInt(kpiData.leads),
+              docs: parseInt(kpiData.docs),
+              sales: parseInt(kpiData.sales)
+            }}
+          />
         </div>
 
         {/* Simplified Background Effects */}
