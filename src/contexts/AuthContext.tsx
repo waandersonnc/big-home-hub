@@ -1,0 +1,318 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/lib/supabase';
+import { demoStore } from '@/lib/demoStore';
+import { logger } from '@/lib/logger';
+import type { User } from '@supabase/supabase-js';
+import type { UserType } from '@/types';
+
+// ============================================
+// TYPES
+// ============================================
+
+export interface AuthUser {
+    id: string;
+    email: string;
+    full_name?: string;
+    phone?: string;
+    role: UserType;
+    real_estate_company_id?: string;
+    manager_id?: string; // For brokers - their manager
+    validoutoken?: boolean; // For owners
+    onboarding_completed?: boolean; // For owners
+}
+
+interface AuthContextType {
+    user: AuthUser | null;
+    supabaseUser: User | null;
+    isLoading: boolean;
+    isAuthenticated: boolean;
+    isOwner: boolean;
+    isManager: boolean;
+    isBroker: boolean;
+    isDemo: boolean;
+    canViewAllData: boolean; // Owner or Manager
+    canManageTeam: boolean; // Owner or Manager
+    canViewOwnDataOnly: boolean; // Broker
+    refreshUser: () => Promise<void>;
+    signOut: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// ============================================
+// PERMISSION HELPERS
+// ============================================
+
+const getPermissions = (role: UserType) => ({
+    canViewAllData: role === 'owner' || role === 'manager',
+    canManageTeam: role === 'owner' || role === 'manager',
+    canViewOwnDataOnly: role === 'broker'
+});
+
+// ============================================
+// PROVIDER
+// ============================================
+
+interface AuthProviderProps {
+    children: ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+    const [user, setUser] = useState<AuthUser | null>(null);
+    const [supabaseUser, setSupabaseUser] = useState<User | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const fetchUserData = async (authUser: User): Promise<AuthUser | null> => {
+        try {
+            // 1. Check if owner
+            const { data: owner, error: ownerError } = await supabase
+                .from('owners')
+                .select('id, email, full_name, phone, validoutoken, onboarding_completed')
+                .eq('id', authUser.id)
+                .maybeSingle();
+
+            if (ownerError) {
+                logger.error('Error fetching owner:', ownerError.message);
+            }
+
+            if (owner) {
+                return {
+                    id: owner.id,
+                    email: owner.email,
+                    full_name: owner.full_name,
+                    phone: owner.phone,
+                    role: 'owner',
+                    validoutoken: owner.validoutoken,
+                    onboarding_completed: owner.onboarding_completed
+                };
+            }
+
+            // 2. Check if staff (manager/broker)
+            const { data: staff, error: staffError } = await supabase
+                .from('users')
+                .select('id, email, full_name, phone, user_type, real_estate_company_id, manager_id')
+                .eq('id', authUser.id)
+                .maybeSingle();
+
+            if (staffError) {
+                logger.error('Error fetching staff:', staffError.message);
+            }
+
+            if (staff) {
+                // Validate user_type
+                if (staff.user_type !== 'manager' && staff.user_type !== 'broker') {
+                    logger.error('Invalid user_type:', staff.user_type);
+                    return null;
+                }
+
+                return {
+                    id: staff.id,
+                    email: staff.email,
+                    full_name: staff.full_name,
+                    phone: staff.phone,
+                    role: staff.user_type as UserType,
+                    real_estate_company_id: staff.real_estate_company_id,
+                    manager_id: staff.manager_id
+                };
+            }
+
+            // User not found in any table
+            logger.error('User not found in owners or users table:', authUser.id);
+            return null;
+
+        } catch (error) {
+            logger.error('Error in fetchUserData:', (error as Error).message);
+            return null;
+        }
+    };
+
+    const refreshUser = async () => {
+        try {
+            const { data: { user: authUser } } = await supabase.auth.getUser();
+
+            if (authUser) {
+                const userData = await fetchUserData(authUser);
+                setUser(userData);
+                setSupabaseUser(authUser);
+            } else {
+                setUser(null);
+                setSupabaseUser(null);
+            }
+        } catch (error) {
+            logger.error('Error refreshing user:', (error as Error).message);
+        }
+    };
+
+    const signOut = async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setSupabaseUser(null);
+        demoStore.deactivate();
+    };
+
+    useEffect(() => {
+        async function initAuth() {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (session?.user) {
+                    const userData = await fetchUserData(session.user);
+
+                    if (!userData) {
+                        // User authenticated but not in our tables - sign out
+                        await signOut();
+                    } else {
+                        setUser(userData);
+                        setSupabaseUser(session.user);
+                    }
+                }
+            } catch (error) {
+                logger.error('Error initializing auth:', (error as Error).message);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        initAuth();
+
+        // Listen for auth state changes
+        const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            if (event === 'SIGNED_IN' && session?.user) {
+                const userData = await fetchUserData(session.user);
+                if (!userData) {
+                    await signOut();
+                } else {
+                    setUser(userData);
+                    setSupabaseUser(session.user);
+                }
+            } else if (event === 'SIGNED_OUT') {
+                setUser(null);
+                setSupabaseUser(null);
+            }
+        });
+
+        return () => {
+            authListener.subscription.unsubscribe();
+        };
+    }, []);
+
+    // Demo mode handling
+    const isDemo = demoStore.isActive;
+
+    // Demo owner data - used when demo mode is active
+    const demoOwner: AuthUser = {
+        id: 'demo-owner',
+        email: 'demo@bighome.com',
+        full_name: 'Usuário Demo',
+        role: 'owner',
+        validoutoken: true,
+        onboarding_completed: true
+    };
+
+    // In demo mode, ALWAYS use demo owner to show full experience
+    // In real mode, use the actual user
+    const effectiveUser: AuthUser | null = isDemo ? demoOwner : user;
+
+    const role = effectiveUser?.role || 'broker';
+    const permissions = getPermissions(role);
+
+    const value: AuthContextType = {
+        user: effectiveUser,
+        supabaseUser: isDemo ? null : supabaseUser, // No supabase user in demo
+        isLoading: isDemo ? false : isLoading, // Never loading in demo mode
+        isAuthenticated: !!effectiveUser || isDemo,
+        isOwner: role === 'owner',
+        isManager: role === 'manager',
+        isBroker: role === 'broker',
+        isDemo,
+        ...permissions,
+        refreshUser,
+        signOut
+    };
+
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+        </AuthContext.Provider>
+    );
+}
+
+// ============================================
+// HOOK
+// ============================================
+
+export function useAuthContext() {
+    const context = useContext(AuthContext);
+    if (context === undefined) {
+        throw new Error('useAuthContext must be used within an AuthProvider');
+    }
+    return context;
+}
+
+// ============================================
+// UTILITY HOOKS
+// ============================================
+
+/**
+ * Returns the current user's role
+ */
+export function useUserRole(): UserType | null {
+    const { user } = useAuthContext();
+    return user?.role || null;
+}
+
+/**
+ * Returns true if the current user can perform the given action
+ */
+export function usePermission(permission: 'viewAllData' | 'manageTeam' | 'viewOwnDataOnly'): boolean {
+    const context = useAuthContext();
+
+    switch (permission) {
+        case 'viewAllData':
+            return context.canViewAllData;
+        case 'manageTeam':
+            return context.canManageTeam;
+        case 'viewOwnDataOnly':
+            return context.canViewOwnDataOnly;
+        default:
+            return false;
+    }
+}
+
+/**
+ * Returns the company ID filter based on user role
+ * - Owner: all companies they own
+ * - Manager/Broker: their assigned company
+ */
+export function useCompanyFilter(): string | null {
+    const { user } = useAuthContext();
+
+    if (!user) return null;
+
+    if (user.role === 'owner') {
+        // Owners can see all their companies - return null to indicate no filter needed
+        // The actual filtering should be done at the query level with owner_id
+        return null;
+    }
+
+    return user.real_estate_company_id || null;
+}
+
+/**
+ * Returns the user ID to filter data by
+ * - Owner/Manager: null (can see all)
+ * - Broker: their own ID
+ */
+export function useUserFilter(): string | null {
+    const { user, isOwner, isManager } = useAuthContext();
+
+    if (!user) return null;
+
+    if (isOwner || isManager) {
+        // Can see all data
+        return null;
+    }
+
+    // Broker - only their own data
+    return user.id;
+}

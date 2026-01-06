@@ -1,4 +1,5 @@
-import { BarChart3, TrendingUp, Users, Building2, AlertCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BarChart3, TrendingUp, Users, Building2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import {
     BarChart,
@@ -10,14 +11,89 @@ import {
     ResponsiveContainer,
     Cell
 } from 'recharts';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { dashboardService, OverviewStats, CompanyStats } from '@/services/dashboard.service';
+import { Loader2 } from 'lucide-react';
 
-const data = [
-    { name: 'Unidade Centro', leads: 400, revenue: 124000 },
-    { name: 'Unidade Jardins', leads: 300, revenue: 98000 },
-    { name: 'Unidade Barra', leads: 200, revenue: 45000 },
+// Demo data for demonstration mode
+const demoData: CompanyStats[] = [
+    { id: 'demo-1', name: 'BigHome Centro', leads: 400, revenue: 124000 },
+    { id: 'demo-2', name: 'BigHome Zona Sul', leads: 300, revenue: 98000 },
+    { id: 'demo-3', name: 'BigHome Jardins', leads: 200, revenue: 45000 },
 ];
 
+const demoStats: OverviewStats = {
+    totalLeads: 900,
+    totalRevenue: 267000,
+    totalCompanies: 3,
+    teamCount: 50
+};
+
+const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(value);
+};
+
 export default function AllDash() {
+    const { user, isDemo: authIsDemo } = useAuthContext();
+    const [stats, setStats] = useState<OverviewStats | null>(null);
+    const [companiesData, setCompaniesData] = useState<CompanyStats[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Check demo from both sources
+    const isDemo = authIsDemo || (typeof window !== 'undefined' && sessionStorage.getItem('bighome_demo_active') === 'true');
+
+    useEffect(() => {
+        async function fetchData() {
+            if (isDemo) {
+                setStats(demoStats);
+                setCompaniesData(demoData);
+                setIsLoading(false);
+                return;
+            }
+
+            if (!user) {
+                setIsLoading(false);
+                return;
+            }
+
+            try {
+                const [overviewStats, chartData] = await Promise.all([
+                    dashboardService.getOwnerOverviewStats(user.id),
+                    dashboardService.getCompaniesStatsForCharts(user.id)
+                ]);
+
+                setStats(overviewStats);
+                setCompaniesData(chartData);
+            } catch (error) {
+                console.error('Erro ao buscar dados:', error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchData();
+    }, [user, isDemo]);
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[50vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    const displayStats = stats || {
+        totalLeads: 0,
+        totalRevenue: 0,
+        totalCompanies: 0,
+        teamCount: 0
+    };
+
     return (
         <div className="space-y-8 animate-fade-in">
             <div>
@@ -31,11 +107,13 @@ export default function AllDash() {
                         <span className="text-sm font-medium">Total de Leads</span>
                         <Users size={16} />
                     </div>
-                    <div className="text-2xl font-bold">900</div>
-                    <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
-                        <TrendingUp size={12} />
-                        +12% este mês
-                    </div>
+                    <div className="text-2xl font-bold">{displayStats.totalLeads.toLocaleString('pt-BR')}</div>
+                    {isDemo && (
+                        <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
+                            <TrendingUp size={12} />
+                            +12% este mês
+                        </div>
+                    )}
                 </Card>
 
                 <Card className="p-6 space-y-2 border-none shadow-soft">
@@ -43,11 +121,13 @@ export default function AllDash() {
                         <span className="text-sm font-medium">Faturamento Total</span>
                         <TrendingUp size={16} />
                     </div>
-                    <div className="text-2xl font-bold">R$ 267.000</div>
-                    <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
-                        <TrendingUp size={12} />
-                        +8% este mês
-                    </div>
+                    <div className="text-2xl font-bold">{formatCurrency(displayStats.totalRevenue)}</div>
+                    {isDemo && (
+                        <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
+                            <TrendingUp size={12} />
+                            +8% este mês
+                        </div>
+                    )}
                 </Card>
 
                 <Card className="p-6 space-y-2 border-none shadow-soft">
@@ -55,16 +135,16 @@ export default function AllDash() {
                         <span className="text-sm font-medium">Imobiliárias Ativas</span>
                         <Building2 size={16} />
                     </div>
-                    <div className="text-2xl font-bold">3</div>
+                    <div className="text-2xl font-bold">{displayStats.totalCompanies}</div>
                 </Card>
 
                 <Card className="p-6 space-y-2 border-none shadow-soft">
                     <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Alerta de Ociosidade</span>
-                        <AlertCircle size={16} />
+                        <span className="text-sm font-medium">Equipe</span>
+                        <Users size={16} />
                     </div>
-                    <div className="text-2xl font-bold">2 Unidades</div>
-                    <div className="text-xs text-amber-500">Abaixo da média esperada</div>
+                    <div className="text-2xl font-bold">{displayStats.teamCount}</div>
+                    <div className="text-xs text-muted-foreground">corretores + gerentes</div>
                 </Card>
             </div>
 
@@ -72,43 +152,83 @@ export default function AllDash() {
                 <Card className="p-8 border-none shadow-soft space-y-6">
                     <h3 className="font-bold text-lg">Leads por Unidade</h3>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                <Tooltip
-                                    cursor={{ fill: '#f8fafc' }}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                />
-                                <Bar dataKey="leads" radius={[4, 4, 0, 0]} barSize={40}>
-                                    {data.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={index === 0 ? '#0ea5e9' : '#94a3b8'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {companiesData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={companiesData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                        dy={10}
+                                        interval={0}
+                                        angle={-15}
+                                        textAnchor="end"
+                                        height={60}
+                                    />
+                                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                    <Tooltip
+                                        cursor={{ fill: '#f8fafc' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Leads']}
+                                    />
+                                    <Bar dataKey="leads" radius={[4, 4, 0, 0]} barSize={40}>
+                                        {companiesData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={index === 0 ? '#0ea5e9' : '#94a3b8'} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                Nenhuma imobiliária cadastrada
+                            </div>
+                        )}
                     </div>
                 </Card>
 
                 <Card className="p-8 border-none shadow-soft space-y-6">
                     <h3 className="font-bold text-lg">Faturamento por Unidade</h3>
                     <div className="h-[300px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
-                                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                <Tooltip
-                                    cursor={{ fill: '#f8fafc' }}
-                                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                />
-                                <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={40} fill="#10b981" />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        {companiesData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={companiesData}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                    <XAxis
+                                        dataKey="name"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                        dy={10}
+                                        interval={0}
+                                        angle={-15}
+                                        textAnchor="end"
+                                        height={60}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                                    />
+                                    <Tooltip
+                                        cursor={{ fill: '#f8fafc' }}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                        formatter={(value: number) => [formatCurrency(value), 'Faturamento']}
+                                    />
+                                    <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={40} fill="#10b981" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-muted-foreground">
+                                Nenhuma imobiliária cadastrada
+                            </div>
+                        )}
                     </div>
                 </Card>
             </div>
         </div>
     );
 }
+

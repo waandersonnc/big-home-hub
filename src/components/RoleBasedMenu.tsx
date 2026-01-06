@@ -14,10 +14,10 @@ import {
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
-import { useRole } from "@/hooks/useAuth";
+import { useAuthContext } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
-import { supabase } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
+import { demoStore } from "@/lib/demoStore";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -36,34 +36,33 @@ interface RoleBasedMenuProps {
 export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBasedMenuProps) {
     const navigate = useNavigate();
     const location = useLocation();
-    const { role, user } = useRole(); // Need user for profile info
-    const { companies, selectedCompanyId, setSelectedCompanyId } = useCompany();
+    const { user, isOwner, isManager, isBroker, signOut } = useAuthContext();
+    const { companies, selectedCompanyId, setSelectedCompanyId, selectedCompany } = useCompany();
 
     const handleLogout = async () => {
-        // Clear everything relevant
         localStorage.removeItem('is_demo');
-        const { error } = await supabase.auth.signOut();
-        if (error) console.error('Error signing out:', error);
+        demoStore.deactivate();
+        await signOut();
         navigate('/login');
     };
 
-    const selectedCompany = companies.find(c => c.id === selectedCompanyId);
+    // selectedCompany now comes from context directly
 
     const menuItems = [
         {
             name: 'Visão Geral',
             path: '/visao-geral',
             icon: BarChart3,
-            visible: role === 'owner' && companies.length > 1
+            visible: isOwner && companies.length > 1
         },
         { name: 'Painel', path: '/painel', icon: LayoutDashboard, visible: true },
-        { name: 'Equipe', path: '/equipe', icon: Users, visible: role !== 'broker' },
-        { name: 'Imóveis', path: '/imoveis', icon: Building2, visible: role === 'owner' },
+        { name: 'Equipe', path: '/equipe', icon: Users, visible: !isBroker },
+        { name: 'Imóveis', path: '/imoveis', icon: Building2, visible: isOwner },
         { name: 'Oportunidades', path: '/oportunidades', icon: Target, visible: true },
         { name: 'Movimentação', path: '/movimentacao', icon: Kanban, visible: true },
-        { name: 'Financeiro', path: '/financeiro', icon: DollarSign, visible: true },
-        { name: 'Agentes', path: '/agentes', icon: Bot, visible: role === 'owner' },
-        { name: 'Anúncios', path: '/anuncios', icon: Megaphone, visible: role === 'owner' },
+        { name: 'Financeiro', path: '/financeiro', icon: DollarSign, visible: isOwner || isManager },
+        { name: 'Agentes', path: '/agentes', icon: Bot, visible: isOwner },
+        { name: 'Anúncios', path: '/anuncios', icon: Megaphone, visible: isOwner },
     ];
 
     const activePath = location.pathname;
@@ -78,8 +77,12 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="w-full justify-between gap-2 h-auto py-2 px-3 border hover:bg-muted/50 transition-colors">
                                     <div className="flex items-center gap-2 overflow-hidden text-left">
-                                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                                            <Building size={16} className="text-primary" />
+                                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                                            {selectedCompany?.logo_url ? (
+                                                <img src={selectedCompany.logo_url} alt={selectedCompany.name} className="h-full w-full object-cover" />
+                                            ) : (
+                                                <Building size={16} className="text-primary" />
+                                            )}
                                         </div>
                                         <div className="flex flex-col overflow-hidden">
                                             <span className="text-xs text-muted-foreground uppercase font-semibold">Imobiliária</span>
@@ -106,8 +109,12 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
                         </DropdownMenu>
                     ) : (
                         <div className="flex items-center gap-3 px-3 py-2 bg-muted/30 rounded-lg w-full">
-                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                                <Building size={16} className="text-primary" />
+                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center shrink-0 overflow-hidden">
+                                {selectedCompany?.logo_url ? (
+                                    <img src={selectedCompany.logo_url} alt={selectedCompany.name} className="h-full w-full object-cover" />
+                                ) : (
+                                    <Building size={16} className="text-primary" />
+                                )}
                             </div>
                             <div className="flex flex-col overflow-hidden">
                                 <span className="text-xs text-muted-foreground uppercase font-semibold">Unidade</span>
@@ -149,13 +156,12 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 overflow-hidden">
                             <Avatar className="h-9 w-9 border">
-                                <AvatarImage src={user?.user_metadata?.avatar_url} />
                                 <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
-                                    {(user?.email?.[0] || 'U').toUpperCase()}
+                                    {(user?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col overflow-hidden">
-                                <span className="text-sm font-semibold truncate">{user?.user_metadata?.name || 'Usuário'}</span>
+                                <span className="text-sm font-semibold truncate">{user?.full_name || 'Usuário'}</span>
                                 <button onClick={handleLogout} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors text-left">
                                     <LogOut size={10} />
                                     Sair
@@ -171,9 +177,8 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
                 ) : (
                     <div className="flex flex-col items-center gap-4">
                         <Avatar className="h-8 w-8 border">
-                            <AvatarImage src={user?.user_metadata?.avatar_url} />
                             <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-bold">
-                                {(user?.email?.[0] || 'U').toUpperCase()}
+                                {(user?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                             </AvatarFallback>
                         </Avatar>
                         {toggleCollapse && (

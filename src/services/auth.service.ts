@@ -152,6 +152,18 @@ export const authService = {
             throw new Error("Token inválido.");
         }
 
+        // Update validoutoken to true after successful verification
+        const { error: updateError } = await supabase
+            .from('owners')
+            .update({ validoutoken: true })
+            .eq('id', userId);
+
+        if (updateError) {
+            logger.error('Erro ao atualizar validoutoken:', updateError.message);
+            throw new Error("Token validado, mas erro ao atualizar status. Entre em contato com o suporte.");
+        }
+
+        logger.debug('Token validado com sucesso para owner:', userId);
         return true;
     }
 };
