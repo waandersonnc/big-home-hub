@@ -44,7 +44,10 @@ const generateChartData = (period: '30d' | '90d' | 'total') => {
     const baseLeads = 247 - (i * 25) + Math.floor(Math.random() * 20);
     const baseDocs = 30 - (i * 2) + Math.floor(Math.random() * 3);
     const baseSales = 12 - Math.floor(i * 0.5) + Math.floor(Math.random() * 2);
-    const baseRevenue = baseSales * 40000 + Math.floor(Math.random() * 50000);
+
+    // Variações maiores no faturamento para ondas mais visíveis
+    const revenueVariations = [0, 120000, 350000, 500000, 180000, 420000, 50000, 485000];
+    const baseRevenue = revenueVariations[i] + Math.floor(Math.random() * 30000);
 
     data.push({
       date: date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }),
@@ -128,7 +131,7 @@ export default function Dashboard() {
       </div>
 
       {/* Liquid Glass Wave Chart - Enhanced */}
-      <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/20 -mx-4 lg:mx-0 rounded-none lg:rounded-[2.5rem] overflow-hidden relative h-[500px] flex flex-col mb-8 group/funnel animate-fade-in" style={{ animationDelay: '0.1s' }}>
+      <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/20 -mx-4 lg:mx-0 rounded-none lg:rounded-[2.5rem] overflow-hidden relative h-[300px] flex flex-col mb-8 group/funnel animate-fade-in" style={{ animationDelay: '0.1s' }}>
         {/* Simplified Atmospheric Glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/4 pointer-events-none" />
@@ -161,14 +164,8 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex-1 w-full relative z-10 flex items-center justify-center py-4">
-          <HorizontalFunnel
-            data={{
-              leads: parseInt(kpiData.leads),
-              docs: parseInt(kpiData.docs),
-              sales: parseInt(kpiData.sales)
-            }}
-          />
+        <div className="flex-1 w-full relative z-10 px-6 py-4">
+          <HorizontalFunnel data={displayChartData} />
         </div>
 
         {/* Simplified Background Effects */}

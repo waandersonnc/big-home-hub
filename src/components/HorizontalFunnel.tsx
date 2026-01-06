@@ -1,275 +1,291 @@
 import React, { useMemo } from 'react';
+import {
+    AreaChart,
+    Area,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    TooltipProps,
+} from 'recharts';
+
+interface FunnelDataPoint {
+    date: string;
+    fullDate?: string;
+    leads: number;
+    docs: number;
+    sales: number;
+    revenue?: number;
+}
 
 interface HorizontalFunnelProps {
-    data: {
-        leads: number;
-        docs: number;
-        sales: number;
-    };
+    data: FunnelDataPoint[];
     className?: string;
 }
 
-export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, className }) => {
-    // Normalize heights based on max value (usually leads)
-    const maxVal = Math.max(data.leads, 1);
-    const h1 = 0.8; // Stage 1 (Leads) - 80% of height
-    const h2 = (data.docs / maxVal) * 0.8; // Stage 2 (Docs)
-    const h3 = (data.sales / maxVal) * 0.8; // Stage 3 (Sales)
+// Custom Tooltip Component - Clean and minimal
+const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload, label }) => {
+    if (!active || !payload || payload.length === 0) return null;
 
-    // Ensure minimum visual presence
-    const finalH2 = Math.max(h2, 0.3);
-    const finalH3 = Math.max(h3, 0.1);
-
-    const width = 800;
-    const height = 300;
-    const centerY = height / 2;
-
-    const points = useMemo(() => {
-        const p1 = { x: 0, h: height * h1 };
-        const p2 = { x: width * 0.5, h: height * finalH2 };
-        const p3 = { x: width, h: height * finalH3 };
-
-        const top = {
-            y1: centerY - p1.h / 2,
-            y2: centerY - p2.h / 2,
-            y3: centerY - p3.h / 2,
-        };
-
-        const bottom = {
-            y1: centerY + p1.h / 2,
-            y2: centerY + p2.h / 2,
-            y3: centerY + p3.h / 2,
-        };
-
-        const path = `
-      M 0 ${top.y1}
-      C ${width * 0.25} ${top.y1}, ${width * 0.25} ${top.y2}, ${width * 0.5} ${top.y2}
-      C ${width * 0.75} ${top.y2}, ${width * 0.75} ${top.y3}, ${width} ${top.y3}
-      L ${width} ${bottom.y3}
-      C ${width * 0.75} ${bottom.y3}, ${width * 0.75} ${bottom.y2}, ${width * 0.5} ${bottom.y2}
-      C ${width * 0.25} ${bottom.y2}, ${width * 0.25} ${bottom.y1}, 0 ${bottom.y1}
-      Z
-    `.replace(/\s+/g, ' ').trim();
-
-        return { path, p1, p2, p3, top, bottom };
-    }, [finalH2, finalH3, height, width, centerY]);
+    const formatValue = (name: string, value: number) => {
+        if (name === 'Faturamento') {
+            return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+        return value;
+    };
 
     return (
-        <div className={`relative w-full h-full min-h-[300px] flex items-center justify-center ${className}`}>
-            <svg
-                viewBox={`0 0 ${width} ${height}`}
-                className="w-full h-full overflow-visible"
-                preserveAspectRatio="xMidYMid meet"
-            >
-                <defs>
-                    {/* Main Blue Gradient - More Vibrant */}
-                    <linearGradient id="funnelGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
-                        <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.5" />
-                        <stop offset="100%" stopColor="#60A5FA" stopOpacity="0.3" />
-                    </linearGradient>
-
-                    {/* Center Boost - Extra blue in the middle */}
-                    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-                        <stop offset="0%" stopColor="#0061ff" stopOpacity="0.6" />
-                        <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
-                    </radialGradient>
-
-                    {/* Flow Animation Gradient - More Intense */}
-                    <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#1D4ED8" stopOpacity="0">
-                            <animate attributeName="offset" values="-0.5; 1.5" dur="6s" repeatCount="indefinite" />
-                        </stop>
-                        <stop offset="50%" stopColor="#0061ff" stopOpacity="0.7">
-                            <animate attributeName="offset" values="0; 2" dur="6s" repeatCount="indefinite" />
-                        </stop>
-                        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0">
-                            <animate attributeName="offset" values="0.5; 2.5" dur="6s" repeatCount="indefinite" />
-                        </stop>
-                    </linearGradient>
-
-                    {/* Shimmer Effect - More Visible */}
-                    <linearGradient id="shimmerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#60A5FA" stopOpacity="0" />
-                        <stop offset="50%" stopColor="#93C5FD" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#60A5FA" stopOpacity="0" />
-                        <animateTransform
-                            attributeName="gradientTransform"
-                            type="translate"
-                            from="-1 0"
-                            to="1 0"
-                            dur="4s"
-                            repeatCount="indefinite"
+        <div className="funnel-tooltip bg-slate-900/95 backdrop-blur-md border border-white/20 rounded-xl px-4 py-3 shadow-2xl">
+            <p className="text-xs text-white/60 mb-2 font-medium">{label}</p>
+            <div className="space-y-1.5">
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                        <div
+                            className="w-2 h-2 rounded-full"
+                            style={{
+                                backgroundColor: entry.color,
+                            }}
                         />
-                    </linearGradient>
-
-                    {/* Optimized Blur Filter for Glow */}
-                    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1" />
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur2" />
-                        <feMerge>
-                            <feMergeNode in="blur2" />
-                            <feMergeNode in="blur1" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-
-                    {/* Subtle Pulse Filter */}
-                    <filter id="neonPulse" x="-50%" y="-50%" width="200%" height="200%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
-                        <feColorMatrix in="blur" type="matrix" values="
-                            0 0 0 0 0.23
-                            0 0 0 0 0.51
-                            0 0 0 0 0.96
-                            0 0 0 0.5 0" result="glow">
-                            <animate attributeName="values"
-                                values="0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 0.3 0;
-                                        0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 0.6 0;
-                                        0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 0.3 0"
-                                dur="3s" repeatCount="indefinite" />
-                        </feColorMatrix>
-                        <feMerge>
-                            <feMergeNode in="glow" />
-                            <feMergeNode in="SourceGraphic" />
-                        </feMerge>
-                    </filter>
-
-                    {/* Clip Path */}
-                    <clipPath id="funnelClip">
-                        <path d={points.path} />
-                    </clipPath>
-                </defs>
-
-                {/* Layered Rendering for Smooth Neon Effect */}
-                <g>
-                    {/* Outer Glow - Largest blur */}
-                    <path
-                        d={points.path}
-                        fill="none"
-                        stroke="#2563EB"
-                        strokeWidth="8"
-                        strokeOpacity="0.25"
-                        filter="url(#softGlow)"
-                    />
-
-                    {/* Middle Glow - Medium blur with pulse */}
-                    <path
-                        d={points.path}
-                        fill="none"
-                        stroke="#3B82F6"
-                        strokeWidth="5"
-                        strokeOpacity="0.45"
-                        filter="url(#neonPulse)"
-                    />
-
-                    {/* Inner Glow - Tight blur */}
-                    <path
-                        d={points.path}
-                        fill="none"
-                        stroke="#60A5FA"
-                        strokeWidth="3"
-                        strokeOpacity="0.6"
-                        filter="url(#softGlow)"
-                    />
-
-                    {/* Main Glass Body */}
-                    <path
-                        d={points.path}
-                        fill="url(#funnelGradient)"
-                        opacity="1"
-                    />
-
-                    {/* Center Radial Boost */}
-                    <ellipse
-                        cx={width * 0.5}
-                        cy={centerY}
-                        rx={width * 0.3}
-                        ry={height * 0.35}
-                        fill="url(#centerGlow)"
-                        clipPath="url(#funnelClip)"
-                    />
-
-                    {/* Flowing Data/Energy Layer */}
-                    <path
-                        d={points.path}
-                        fill="url(#flowGradient)"
-                        clipPath="url(#funnelClip)"
-                        opacity="0.9"
-                    />
-
-                    {/* Shimmer/Highlights Layer */}
-                    <path
-                        d={points.path}
-                        fill="url(#shimmerGradient)"
-                        clipPath="url(#funnelClip)"
-                        opacity="0.7"
-                    />
-
-                    {/* Border Definition */}
-                    <path
-                        d={points.path}
-                        fill="none"
-                        stroke="#3B82F6"
-                        strokeWidth="2"
-                        strokeOpacity="0.6"
-                    />
-                </g>
-
-                {/* Labels/Values at Points */}
-                <g className="font-sans">
-                    {/* Point 1: Leads */}
-                    <g transform={`translate(20, ${centerY})`}>
-                        <text
-                            fill="white"
-                            fontSize="18"
-                            fontWeight="bold"
-                            opacity="0.95"
-                            style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.8)' }}
-                        >
-                            {data.leads}
-                        </text>
-                        <text fill="white" fontSize="10" y="20" opacity="0.7">Leads</text>
-                    </g>
-
-                    {/* Point 2: Documents */}
-                    <g transform={`translate(${width * 0.5}, ${centerY})`}>
-                        <text
-                            fill="white"
-                            fontSize="16"
-                            fontWeight="bold"
-                            textAnchor="middle"
-                            opacity="0.95"
-                            style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.8)' }}
-                        >
-                            {data.docs}
-                        </text>
-                        <text fill="white" fontSize="10" y="18" textAnchor="middle" opacity="0.7">Documentos</text>
-                    </g>
-
-                    {/* Point 3: Sales */}
-                    <g transform={`translate(${width - 20}, ${centerY})`}>
-                        <text
-                            fill="white"
-                            fontSize="14"
-                            fontWeight="bold"
-                            textAnchor="end"
-                            opacity="0.95"
-                            style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.8)' }}
-                        >
-                            {data.sales}
-                        </text>
-                        <text fill="white" fontSize="9" y="16" textAnchor="end" opacity="0.7">Vendas</text>
-                    </g>
-                </g>
-
-                {/* Highlight points with glow */}
-                <g filter="url(#softGlow)">
-                    <circle cx="0" cy={centerY} r="5" fill="#60A5FA" opacity="0.9" />
-                    <circle cx={width * 0.5} cy={centerY} r="4" fill="#60A5FA" opacity="0.9" />
-                    <circle cx={width} cy={centerY} r="3" fill="#60A5FA" opacity="0.9" />
-                </g>
-            </svg>
+                        <span className="text-xs text-white/80 capitalize">{entry.name}</span>
+                        <span className="text-xs text-white font-semibold ml-auto">
+                            {formatValue(entry.name || '', entry.value as number)}
+                        </span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };
+
+export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, className }) => {
+    // Fallback data if none provided
+    const chartData = useMemo(() => {
+        if (data && data.length > 0) return data;
+
+        // Generate minimal fallback
+        return [
+            { date: 'Sem. 1', leads: 200, docs: 25, sales: 8 },
+            { date: 'Sem. 2', leads: 180, docs: 28, sales: 10 },
+            { date: 'Sem. 3', leads: 220, docs: 30, sales: 11 },
+            { date: 'Sem. 4', leads: 247, docs: 32, sales: 12 },
+        ];
+    }, [data]);
+
+    return (
+        <div className={`funnel-chart-container w-full h-full min-h-[160px] ${className || ''}`}>
+            {/* CSS for neon effects - uses CSS animations instead of SVG filters for performance */}
+            <style>{`
+        .funnel-chart-container {
+          --neon-blue: #3B82F6;
+          --neon-purple: #A855F7;
+          --neon-cyan: #22D3EE;
+        }
+        
+        /* Subtle pulse animation on the chart area - REMOVED shadows */
+        .funnel-chart-container .recharts-area-area {
+          /* No shadow effects */
+        }
+        
+        /* Lines without shadow */
+        .funnel-chart-container .recharts-area-curve {
+          transition: opacity 0.3s ease;
+        }
+        
+        /* Hover state - no shadows */
+        .funnel-chart-container:hover .recharts-area-curve {
+          /* No shadow effects */
+        }
+        
+        .funnel-chart-container:hover .recharts-area-area {
+          /* No shadow effects */
+        }
+        
+        /* Smooth dots appearance on hover */
+        .funnel-chart-container .recharts-dot {
+          opacity: 0;
+          transition: opacity 0.3s ease, transform 0.2s ease;
+        }
+        
+        .funnel-chart-container:hover .recharts-dot {
+          opacity: 1;
+        }
+        
+        .funnel-chart-container .recharts-active-dot {
+          /* No shadow effects */
+        }
+        
+        /* Tooltip styling */
+        .funnel-tooltip {
+          animation: tooltip-fade-in 0.2s ease-out;
+        }
+        
+        @keyframes tooltip-fade-in {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Grid lines subtle glow */
+        .funnel-chart-container .recharts-cartesian-grid-horizontal line,
+        .funnel-chart-container .recharts-cartesian-grid-vertical line {
+          stroke-opacity: 0.08;
+        }
+      `}</style>
+
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                    data={chartData}
+                    margin={{ top: 20, right: 30, left: 0, bottom: 10 }}
+                >
+                    <defs>
+                        {/* Leads Gradient - Blue */}
+                        <linearGradient id="gradientLeads" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#3B82F6" stopOpacity={0.35} />
+                            <stop offset="50%" stopColor="#2563EB" stopOpacity={0.15} />
+                            <stop offset="100%" stopColor="#1D4ED8" stopOpacity={0.02} />
+                        </linearGradient>
+
+                        {/* Docs Gradient - Purple */}
+                        <linearGradient id="gradientDocs" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#A855F7" stopOpacity={0.35} />
+                            <stop offset="50%" stopColor="#9333EA" stopOpacity={0.15} />
+                            <stop offset="100%" stopColor="#7C3AED" stopOpacity={0.02} />
+                        </linearGradient>
+
+                        {/* Sales Gradient - Cyan/Teal */}
+                        <linearGradient id="gradientSales" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#22D3EE" stopOpacity={0.4} />
+                            <stop offset="50%" stopColor="#06B6D4" stopOpacity={0.2} />
+                            <stop offset="100%" stopColor="#0891B2" stopOpacity={0.02} />
+                        </linearGradient>
+
+                        {/* Revenue Gradient - Warning/Amber (same as Faturamento icon) */}
+                        <linearGradient id="gradientRevenue" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#F59E0B" stopOpacity={0.4} />
+                            <stop offset="50%" stopColor="#D97706" stopOpacity={0.2} />
+                            <stop offset="100%" stopColor="#B45309" stopOpacity={0.02} />
+                        </linearGradient>
+                    </defs>
+
+                    <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke="rgba(255, 255, 255, 0.06)"
+                        vertical={false}
+                    />
+
+                    <XAxis
+                        dataKey="date"
+                        stroke="rgba(255, 255, 255, 0.4)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={{ stroke: 'rgba(255, 255, 255, 0.1)' }}
+                        dy={10}
+                    />
+
+                    <YAxis
+                        yAxisId="left"
+                        stroke="rgba(255, 255, 255, 0.4)"
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        width={40}
+                    />
+
+                    <YAxis
+                        yAxisId="right"
+                        orientation="right"
+                        stroke="rgba(255, 255, 255, 0.3)"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        width={50}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+
+                    <Tooltip
+                        content={<CustomTooltip />}
+                        cursor={{
+                            stroke: 'rgba(255, 255, 255, 0.1)',
+                            strokeWidth: 1,
+                            strokeDasharray: '4 4'
+                        }}
+                    />
+
+                    {/* Revenue Area - With dramatic waves, at the back */}
+                    <Area
+                        yAxisId="right"
+                        type="monotone"
+                        dataKey="revenue"
+                        name="Faturamento"
+                        stroke="#F59E0B"
+                        strokeWidth={2.5}
+                        fill="url(#gradientRevenue)"
+                        dot={false}
+                        activeDot={{
+                            r: 5,
+                            fill: '#F59E0B',
+                            stroke: '#fff',
+                            strokeWidth: 2
+                        }}
+                    />
+
+                    {/* Leads Area - Largest */}
+                    <Area
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="leads"
+                        name="Leads"
+                        stroke="#3B82F6"
+                        strokeWidth={2.5}
+                        fill="url(#gradientLeads)"
+                        dot={false}
+                        activeDot={{
+                            r: 5,
+                            fill: '#3B82F6',
+                            stroke: '#fff',
+                            strokeWidth: 2
+                        }}
+                    />
+
+                    {/* Docs Area - Medium */}
+                    <Area
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="docs"
+                        name="Documentos"
+                        stroke="#A855F7"
+                        strokeWidth={2.5}
+                        fill="url(#gradientDocs)"
+                        dot={false}
+                        activeDot={{
+                            r: 5,
+                            fill: '#A855F7',
+                            stroke: '#fff',
+                            strokeWidth: 2
+                        }}
+                    />
+
+                    {/* Sales Area - Smallest, on top */}
+                    <Area
+                        yAxisId="left"
+                        type="monotone"
+                        dataKey="sales"
+                        name="Vendas"
+                        stroke="#22D3EE"
+                        strokeWidth={2.5}
+                        fill="url(#gradientSales)"
+                        dot={false}
+                        activeDot={{
+                            r: 5,
+                            fill: '#22D3EE',
+                            stroke: '#fff',
+                            strokeWidth: 2
+                        }}
+                    />
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    );
+};
+
+export default HorizontalFunnel;
