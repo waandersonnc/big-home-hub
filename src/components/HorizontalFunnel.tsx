@@ -20,10 +20,6 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
     const finalH2 = Math.max(h2, 0.3);
     const finalH3 = Math.max(h3, 0.1);
 
-    // Path coordinates (viewBox 800 300)
-    // Top curve: Starts top-left, curves through middle, ends top-right
-    // Bottom curve: Starts bottom-left, curves through middle, ends bottom-right
-
     const width = 800;
     const height = 300;
     const centerY = height / 2;
@@ -45,8 +41,6 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
             y3: centerY + p3.h / 2,
         };
 
-        // Construct path: Move to p1-top, Bezier to p2-top, Bezier to p3-top,
-        // Line to p3-bottom, Bezier to p2-bottom, Bezier to p1-bottom, close.
         const path = `
       M 0 ${top.y1}
       C ${width * 0.25} ${top.y1}, ${width * 0.25} ${top.y2}, ${width * 0.5} ${top.y2}
@@ -62,38 +56,44 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
 
     return (
         <div className={`relative w-full h-full min-h-[300px] flex items-center justify-center ${className}`}>
-            {/* Main Funnel SVG */}
             <svg
                 viewBox={`0 0 ${width} ${height}`}
                 className="w-full h-full overflow-visible"
                 preserveAspectRatio="xMidYMid meet"
             >
                 <defs>
-                    {/* Main Blue Gradient */}
+                    {/* Main Blue Gradient - More Vibrant */}
                     <linearGradient id="funnelGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.25" />
-                        <stop offset="50%" stopColor="#60A5FA" stopOpacity="0.15" />
-                        <stop offset="100%" stopColor="#93C5FD" stopOpacity="0.1" />
+                        <stop offset="0%" stopColor="#2563EB" stopOpacity="0.4" />
+                        <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.5" />
+                        <stop offset="100%" stopColor="#60A5FA" stopOpacity="0.3" />
                     </linearGradient>
 
-                    {/* Flow Animation Gradient */}
+                    {/* Center Boost - Extra blue in the middle */}
+                    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stopColor="#0061ff" stopOpacity="0.6" />
+                        <stop offset="50%" stopColor="#3B82F6" stopOpacity="0.3" />
+                        <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
+                    </radialGradient>
+
+                    {/* Flow Animation Gradient - More Intense */}
                     <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#3B82F6" stopOpacity="0">
-                            <animate attributeName="offset" values="-1; 1" dur="7s" repeatCount="indefinite" />
+                        <stop offset="0%" stopColor="#1D4ED8" stopOpacity="0">
+                            <animate attributeName="offset" values="-0.5; 1.5" dur="6s" repeatCount="indefinite" />
                         </stop>
-                        <stop offset="0.5" stopColor="#0061ff" stopOpacity="0.6">
-                            <animate attributeName="offset" values="-0.5; 1.5" dur="7s" repeatCount="indefinite" />
+                        <stop offset="50%" stopColor="#0061ff" stopOpacity="0.7">
+                            <animate attributeName="offset" values="0; 2" dur="6s" repeatCount="indefinite" />
                         </stop>
-                        <stop offset="1" stopColor="#3B82F6" stopOpacity="0">
-                            <animate attributeName="offset" values="0; 2" dur="7s" repeatCount="indefinite" />
+                        <stop offset="100%" stopColor="#1D4ED8" stopOpacity="0">
+                            <animate attributeName="offset" values="0.5; 2.5" dur="6s" repeatCount="indefinite" />
                         </stop>
                     </linearGradient>
 
-                    {/* Shimmer Effect */}
+                    {/* Shimmer Effect - More Visible */}
                     <linearGradient id="shimmerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="white" stopOpacity="0" />
-                        <stop offset="50%" stopColor="white" stopOpacity="0.15" />
-                        <stop offset="100%" stopColor="white" stopOpacity="0" />
+                        <stop offset="0%" stopColor="#60A5FA" stopOpacity="0" />
+                        <stop offset="50%" stopColor="#93C5FD" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="#60A5FA" stopOpacity="0" />
                         <animateTransform
                             attributeName="gradientTransform"
                             type="translate"
@@ -104,36 +104,90 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                         />
                     </linearGradient>
 
-                    {/* Glow Filter */}
-                    <filter id="glassGlow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="5" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    {/* Optimized Blur Filter for Glow */}
+                    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur1" />
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="12" result="blur2" />
+                        <feMerge>
+                            <feMergeNode in="blur2" />
+                            <feMergeNode in="blur1" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
                     </filter>
 
-                    {/* Clip Path to keep effects inside funnel */}
+                    {/* Subtle Pulse Filter */}
+                    <filter id="neonPulse" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                        <feColorMatrix in="blur" type="matrix" values="
+                            0 0 0 0 0.23
+                            0 0 0 0 0.51
+                            0 0 0 0 0.96
+                            0 0 0 0.5 0" result="glow">
+                            <animate attributeName="values"
+                                values="0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 0.3 0;
+                                        0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 0.6 0;
+                                        0 0 0 0 0.23 0 0 0 0 0.51 0 0 0 0 0.96 0 0 0 0.3 0"
+                                dur="3s" repeatCount="indefinite" />
+                        </feColorMatrix>
+                        <feMerge>
+                            <feMergeNode in="glow" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+
+                    {/* Clip Path */}
                     <clipPath id="funnelClip">
                         <path d={points.path} />
                     </clipPath>
                 </defs>
 
-                {/* Backdrop Blur Layer (using a group with filter if supported, or CSS) */}
-                {/* Optimized Layer Group */}
+                {/* Layered Rendering for Smooth Neon Effect */}
                 <g>
-                    {/* Glow Layer (Performant Opacity Pulse) */}
+                    {/* Outer Glow - Largest blur */}
                     <path
                         d={points.path}
-                        fill="transparent"
+                        fill="none"
+                        stroke="#2563EB"
+                        strokeWidth="24"
+                        strokeOpacity="0.25"
+                        filter="url(#softGlow)"
+                    />
+
+                    {/* Middle Glow - Medium blur with pulse */}
+                    <path
+                        d={points.path}
+                        fill="none"
                         stroke="#3B82F6"
-                        strokeWidth="15"
-                        strokeOpacity="0.4"
-                        style={{ filter: 'blur(8px)' }}
+                        strokeWidth="16"
+                        strokeOpacity="0.45"
+                        filter="url(#neonPulse)"
+                    />
+
+                    {/* Inner Glow - Tight blur */}
+                    <path
+                        d={points.path}
+                        fill="none"
+                        stroke="#60A5FA"
+                        strokeWidth="8"
+                        strokeOpacity="0.6"
+                        filter="url(#softGlow)"
                     />
 
                     {/* Main Glass Body */}
                     <path
                         d={points.path}
                         fill="url(#funnelGradient)"
-                        className="backdrop-blur-sm"
+                        opacity="1"
+                    />
+
+                    {/* Center Radial Boost */}
+                    <ellipse
+                        cx={width * 0.5}
+                        cy={centerY}
+                        rx={width * 0.3}
+                        ry={height * 0.35}
+                        fill="url(#centerGlow)"
+                        clipPath="url(#funnelClip)"
                     />
 
                     {/* Flowing Data/Energy Layer */}
@@ -141,6 +195,7 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                         d={points.path}
                         fill="url(#flowGradient)"
                         clipPath="url(#funnelClip)"
+                        opacity="0.9"
                     />
 
                     {/* Shimmer/Highlights Layer */}
@@ -148,6 +203,16 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                         d={points.path}
                         fill="url(#shimmerGradient)"
                         clipPath="url(#funnelClip)"
+                        opacity="0.7"
+                    />
+
+                    {/* Border Definition */}
+                    <path
+                        d={points.path}
+                        fill="none"
+                        stroke="#3B82F6"
+                        strokeWidth="2"
+                        strokeOpacity="0.6"
                     />
                 </g>
 
@@ -155,41 +220,56 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                 <g className="font-sans">
                     {/* Point 1: Leads */}
                     <g transform={`translate(20, ${centerY})`}>
-                        <text fill="white" fontSize="18" fontWeight="bold" opacity="0.9">{data.leads}</text>
-                        <text fill="white" fontSize="10" y="20" opacity="0.6">Leads</text>
+                        <text
+                            fill="white"
+                            fontSize="18"
+                            fontWeight="bold"
+                            opacity="0.95"
+                            style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.8)' }}
+                        >
+                            {data.leads}
+                        </text>
+                        <text fill="white" fontSize="10" y="20" opacity="0.7">Leads</text>
                     </g>
 
                     {/* Point 2: Documents */}
                     <g transform={`translate(${width * 0.5}, ${centerY})`}>
-                        <text fill="white" fontSize="16" fontWeight="bold" textAnchor="middle" opacity="0.9">{data.docs}</text>
-                        <text fill="white" fontSize="10" y="18" textAnchor="middle" opacity="0.6">Documentos</text>
+                        <text
+                            fill="white"
+                            fontSize="16"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                            opacity="0.95"
+                            style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.8)' }}
+                        >
+                            {data.docs}
+                        </text>
+                        <text fill="white" fontSize="10" y="18" textAnchor="middle" opacity="0.7">Documentos</text>
                     </g>
 
                     {/* Point 3: Sales */}
                     <g transform={`translate(${width - 20}, ${centerY})`}>
-                        <text fill="white" fontSize="14" fontWeight="bold" textAnchor="end" opacity="0.9">{data.sales}</text>
-                        <text fill="white" fontSize="9" y="16" textAnchor="end" opacity="0.6">Vendas</text>
+                        <text
+                            fill="white"
+                            fontSize="14"
+                            fontWeight="bold"
+                            textAnchor="end"
+                            opacity="0.95"
+                            style={{ textShadow: '0 0 8px rgba(59, 130, 246, 0.8)' }}
+                        >
+                            {data.sales}
+                        </text>
+                        <text fill="white" fontSize="9" y="16" textAnchor="end" opacity="0.7">Vendas</text>
                     </g>
                 </g>
 
-                {/* Highlight points */}
-                {/* Highlight points */}
-                <circle cx="0" cy={centerY} r="4" fill="#60A5FA" opacity="0.8" />
-                <circle cx={width * 0.5} cy={centerY} r="3" fill="#60A5FA" opacity="0.8" />
-                <circle cx={width} cy={centerY} r="2" fill="#60A5FA" opacity="0.8" />
+                {/* Highlight points with glow */}
+                <g filter="url(#softGlow)">
+                    <circle cx="0" cy={centerY} r="5" fill="#60A5FA" opacity="0.9" />
+                    <circle cx={width * 0.5} cy={centerY} r="4" fill="#60A5FA" opacity="0.9" />
+                    <circle cx={width} cy={centerY} r="3" fill="#60A5FA" opacity="0.9" />
+                </g>
             </svg>
-
-            {/* CSS-based animations for extra liquid feel if needed */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
-        @keyframes flow {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        .animate-flow {
-          animation: flow 3s linear infinite;
-        }
-      `}} />
         </div>
     );
 };
