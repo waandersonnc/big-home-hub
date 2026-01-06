@@ -37,18 +37,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     const fetchCompanies = useCallback(async () => {
         // Check demo mode from BOTH demoStore directly AND auth context
         // This ensures we catch demo mode even if auth context hasn't re-rendered yet
-        const isDemo = demoStore.isActive || authIsDemo;
-
-        // Demo mode - use demo companies
-        if (isDemo) {
-            setCompanies(DEMO_COMPANIES);
-            setSelectedCompanyId(prev => prev || DEMO_COMPANIES[0].id);
-            setIsLoading(false);
-            return;
-        }
-
-        // Not logged in
-        if (!user) {
+        if (!user && !demoStore.isActive) {
             setCompanies([]);
             setSelectedCompanyId(null);
             setIsLoading(false);
@@ -58,38 +47,42 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         try {
             let fetchedCompanies: Company[] = [];
 
-            if (isOwner) {
-                // Owner: buscar todas as empresas que possui
+            if (isOwner || (isDemo && !user?.real_estate_company_id)) {
+                // Owner (ou Demo sem ID da empresa): buscar todas as empresas que possui
+                const searchId = user?.id || 'f6daa179-65ad-47db-a340-0bd31b3acbf5';
                 const { data, error } = await supabase
                     .from('real_estate_companies')
-                    .select('id, name, company_logo_url')
-                    .eq('owner_id', user.id)
+                    .select('id, name, logo_url')
+                    .eq('owner_id', searchId)
                     .order('created_at', { ascending: true });
 
                 if (error) {
                     logger.error('Erro ao buscar empresas do owner:', error.message);
-                } else if (data) {
+                } else if (data && data.length > 0) {
                     fetchedCompanies = data.map(c => ({
                         id: c.id,
                         name: c.name,
-                        logo_url: c.company_logo_url
+                        logo_url: c.logo_url
                     }));
+                } else if (isDemo) {
+                    // Fallback para dados mockados se não houver nada no banco para o modo demo
+                    fetchedCompanies = DEMO_COMPANIES;
                 }
             } else if (isManager || isBroker) {
                 // Manager/Broker: buscar empresa vinculada
                 const { data: userData, error: userError } = await supabase
                     .from('users')
-                    .select('real_estate_company_id')
+                    .select('company_id')
                     .eq('id', user.id)
                     .single();
 
-                if (userError || !userData?.real_estate_company_id) {
+                if (userError || !userData?.company_id) {
                     logger.error('Erro ao buscar company_id do user:', userError?.message);
                 } else {
                     const { data, error } = await supabase
                         .from('real_estate_companies')
-                        .select('id, name, company_logo_url')
-                        .eq('id', userData.real_estate_company_id)
+                        .select('id, name, logo_url')
+                        .eq('id', userData.company_id)
                         .single();
 
                     if (error) {
@@ -98,7 +91,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
                         fetchedCompanies = [{
                             id: data.id,
                             name: data.name,
-                            logo_url: data.company_logo_url
+                            logo_url: data.logo_url
                         }];
                     }
                 }

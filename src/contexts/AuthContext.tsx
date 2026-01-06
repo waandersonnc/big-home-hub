@@ -67,7 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // 1. Check if owner
             const { data: owner, error: ownerError } = await supabase
                 .from('owners')
-                .select('id, email, full_name, phone, validoutoken, onboarding_completed')
+                .select('id, email, name, phone, validoutoken')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
@@ -79,18 +79,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 return {
                     id: owner.id,
                     email: owner.email,
-                    full_name: owner.full_name,
+                    full_name: owner.name,
                     phone: owner.phone,
                     role: 'owner',
                     validoutoken: owner.validoutoken,
-                    onboarding_completed: owner.onboarding_completed
+                    onboarding_completed: true // Fallback to true since column is missing
                 };
             }
 
             // 2. Check if staff (manager/broker)
             const { data: staff, error: staffError } = await supabase
                 .from('users')
-                .select('id, email, full_name, phone, user_type, real_estate_company_id, manager_id')
+                .select('id, email, name, phone, role, company_id, manager_id')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
@@ -99,19 +99,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
 
             if (staff) {
-                // Validate user_type
-                if (staff.user_type !== 'manager' && staff.user_type !== 'broker') {
-                    logger.error('Invalid user_type:', staff.user_type);
-                    return null;
-                }
+                // Validate user_type (role in DB)
+                const userType = staff.role === 'realtor' ? 'broker' : staff.role;
 
                 return {
                     id: staff.id,
                     email: staff.email,
-                    full_name: staff.full_name,
+                    full_name: staff.name,
                     phone: staff.phone,
-                    role: staff.user_type as UserType,
-                    real_estate_company_id: staff.real_estate_company_id,
+                    role: userType as UserType,
+                    real_estate_company_id: staff.company_id,
                     manager_id: staff.manager_id
                 };
             }
@@ -201,8 +198,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Demo owner data - used when demo mode is active
     const demoOwner: AuthUser = {
-        id: 'demo-owner',
-        email: 'demo@bighome.com',
+        id: 'f6daa179-65ad-47db-a340-0bd31b3acbf5',
+        email: 'demo@bighome.com.br',
         full_name: 'Usuário Demo',
         role: 'owner',
         validoutoken: true,

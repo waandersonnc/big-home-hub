@@ -15,22 +15,28 @@ export const teamService = {
         const { data, error } = await supabase
             .from('users')
             .select('*')
-            .eq('user_type', 'manager')
+            .eq('role', 'manager')
             .eq('company_id', companyId);
 
         if (error) throw error;
-        return data;
+        return (data || []).map(u => ({
+            ...u,
+            full_name: u.name // map name to full_name for frontend
+        }));
     },
 
     async listBrokers(companyId: string) {
         const { data, error } = await supabase
             .from('users')
-            .select('*, manager:manager_id(full_name)')
-            .eq('user_type', 'broker')
+            .select('*') // 'realtor' is the role in DB
+            .eq('role', 'realtor')
             .eq('company_id', companyId);
 
         if (error) throw error;
-        return data;
+        return (data || []).map(u => ({
+            ...u,
+            full_name: u.name // map name to full_name for frontend
+        }));
     },
 
     async createMember(data: TeamMemberData) {

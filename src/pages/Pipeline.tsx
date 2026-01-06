@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Search, Phone, GripVertical } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Phone, GripVertical, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,8 +21,11 @@ import {
 import { leads as initialLeads, Lead, teamMembers, properties } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { demoStore } from '@/lib/demoStore';
+import { useCompany } from '@/contexts/CompanyContext';
+import { dashboardService } from '@/services/dashboard.service';
+import { useToast } from '@/components/ui/use-toast';
 
-type PipelineColumn = Lead['status'];
+type PipelineColumn = 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido';
 
 const columns: { id: PipelineColumn; title: string; color: string }[] = [
   { id: 'Em Espera', title: 'Em Espera', color: 'bg-muted' },
@@ -31,29 +34,121 @@ const columns: { id: PipelineColumn; title: string; color: string }[] = [
   { id: 'Vendido', title: 'Vendido', color: 'bg-success/10' },
 ];
 
+const STAGE_TO_COLUMN: Record<string, PipelineColumn> = {
+  'new': 'Em Espera',
+  'contacted': 'Em Atendimento',
+  'visit_scheduled': 'Em Atendimento',
+  'proposal': 'Documentação',
+  'won': 'Vendido',
+  'waiting': 'Em Espera'
+};
+
 export default function Pipeline() {
   const isDemo = demoStore.isActive;
-  const [leads, setLeads] = useState<Lead[]>(isDemo ? initialLeads : []);
+  const { selectedCompanyId } = useCompany();
+  const { toast } = useToast();
+
+  const [leads, setLeads] = useState<any[]>([]);
+  const [agents, setAgents] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [agentFilter, setAgentFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  const [draggedLead, setDraggedLead] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const agents = teamMembers.filter((m) => m.role === 'Corretor');
+  const fetchData = async () => {
+    let realLeads: any[] = [];
+    let realAgents: any[] = [];
+    let fetchedFromDb = false;
+
+    if (!isDemo && !selectedCompanyId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const companyId = isDemo
+        ? (selectedCompanyId?.startsWith('demo-') ? null : selectedCompanyId)
+        : selectedCompanyId;
+
+      if (companyId) {
+        const [allLeads, team] = await Promise.all([
+          dashboardService.getAllCompanyLeads(companyId),
+          dashboardService.listTeam(companyId)
+        ]);
+
+        realAgents = team.filter(u => u.user_type === 'broker').map(u => ({
+          id: u.id,
+          name: u.full_name,
+          avatar: u.full_name.substring(0, 2).toUpperCase(),
+          status: u.active ? 'active' : 'inactive'
+        }));
+
+        realLeads = allLeads.filter(l => l.assigned_to !== null).map(l => {
+          const agent = team.find(u => u.id === l.assigned_to);
+          return {
+            id: l.id,
+            name: l.name,
+            phone: l.phone,
+            propertyInterest: l.property_interest || 'Imóvel sob consulta',
+            agent: agent?.full_name || 'Desconhecido',
+            agentAvatar: (agent?.full_name || 'U').substring(0, 2).toUpperCase(),
+            status: STAGE_TO_COLUMN[l.stage] || 'Em Espera',
+            origin: l.source || 'Website'
+          };
+        });
+
+        if (realLeads.length > 0 || realAgents.length > 0) {
+          fetchedFromDb = true;
+        }
+      }
+
+      if (isDemo && !fetchedFromDb) {
+        setLeads(initialLeads);
+        setAgents(teamMembers.filter(m => m.role === 'Corretor'));
+      } else {
+        setLeads(realLeads);
+        setAgents(realAgents);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar pipeline:', error);
+      if (isDemo) {
+        setLeads(initialLeads);
+        setAgents(teamMembers.filter(m => m.role === 'Corretor'));
+      } else {
+        toast({ title: "Erro ao carregar dados", description: "Não foi possível carregar o pipeline.", variant: "destructive" });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedCompanyId, isDemo]);
 
   // Create a set of valid broker names for O(1) lookup
   const validBrokerNames = new Set(agents.map(a => a.name));
 
   const filteredLeads = leads.filter((lead) => {
-    const matchesSearch = lead.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const nameMatch = lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
     const matchesAgentFilter = agentFilter === 'all' || lead.agent === agentFilter;
 
     // Only show leads assigned to a valid Broker
     // Checks if agent is not null AND if the agent name exists in the broker list
-    const isAssignedToBroker = lead.agent !== null && validBrokerNames.has(lead.agent);
+    const isAssignedToBroker = lead.agent !== null && (validBrokerNames.has(lead.agent) || isDemo);
 
-    return matchesSearch && matchesAgentFilter && isAssignedToBroker;
+    return nameMatch && matchesAgentFilter && isAssignedToBroker;
   });
+
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center p-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const getColumnLeads = (status: PipelineColumn) => {
     return filteredLeads.filter((lead) => lead.status === status);

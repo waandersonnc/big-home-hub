@@ -49,7 +49,6 @@ export interface CompanyStats {
 export const dashboardService = {
     /**
      * Busca a primeira imobiliária do owner logado
-     * Se não tiver nenhuma, retorna null
      */
     async getOwnerFirstCompany(ownerId: string): Promise<RealEstateCompany | null> {
         try {
@@ -66,7 +65,19 @@ export const dashboardService = {
                 return null;
             }
 
-            return data;
+            // Mapear campos reais para a interface se necessário
+            if (data) {
+                return {
+                    id: data.id,
+                    name: data.name,
+                    logo_url: data.logo_url,
+                    owner_id: data.owner_id,
+                    cnpj: data.document,
+                    phone: data.phone
+                };
+            }
+
+            return null;
         } catch (error) {
             logger.error('Erro em getOwnerFirstCompany:', (error as Error).message);
             return null;
@@ -89,7 +100,14 @@ export const dashboardService = {
                 return [];
             }
 
-            return data || [];
+            return (data || []).map(c => ({
+                id: c.id,
+                name: c.name,
+                logo_url: c.logo_url,
+                owner_id: c.owner_id,
+                cnpj: c.document,
+                phone: c.phone
+            }));
         } catch (error) {
             logger.error('Erro em getOwnerCompanies:', (error as Error).message);
             return [];
@@ -97,18 +115,18 @@ export const dashboardService = {
     },
 
     /**
-     * Busca a empresa do user (manager/broker) pelo company_id
+     * Busca a empresa do user (manager/realtor) pelo company_id
      */
     async getUserCompany(userId: string): Promise<RealEstateCompany | null> {
         try {
-            // Primeiro buscar o user para pegar company_id
+            // No banco real, a tabela users tem a coluna company_id
             const { data: userData, error: userError } = await supabase
                 .from('users')
-                .select('real_estate_company_id')
+                .select('company_id')
                 .eq('id', userId)
                 .single();
 
-            if (userError || !userData?.real_estate_company_id) {
+            if (userError || !userData?.company_id) {
                 logger.error('Erro ao buscar company_id do user:', userError?.message);
                 return null;
             }
@@ -117,7 +135,7 @@ export const dashboardService = {
             const { data, error } = await supabase
                 .from('real_estate_companies')
                 .select('*')
-                .eq('id', userData.real_estate_company_id)
+                .eq('id', userData.company_id)
                 .single();
 
             if (error) {
@@ -125,7 +143,14 @@ export const dashboardService = {
                 return null;
             }
 
-            return data;
+            return {
+                id: data.id,
+                name: data.name,
+                logo_url: data.logo_url,
+                owner_id: data.owner_id,
+                cnpj: data.document,
+                phone: data.phone
+            };
         } catch (error) {
             logger.error('Erro em getUserCompany:', (error as Error).message);
             return null;
@@ -137,10 +162,10 @@ export const dashboardService = {
      */
     async getCompanyStats(companyId: string): Promise<DashboardStats> {
         try {
-            // Buscar leads da empresa
+            // Buscar leads da empresa (usando 'stage' em vez de 'status')
             const { data: leads, error: leadsError } = await supabase
                 .from('leads')
-                .select('id, status')
+                .select('id, stage')
                 .eq('company_id', companyId);
 
             if (leadsError) {
@@ -148,15 +173,15 @@ export const dashboardService = {
             }
 
             const allLeads = leads || [];
-            const docsLeads = allLeads.filter(l => l.status === 'proposal');
-            const salesLeads = allLeads.filter(l => l.status === 'closed');
+            const docsLeads = allLeads.filter(l => l.stage === 'proposal');
+            const salesLeads = allLeads.filter(l => l.stage === 'won');
 
-            // Buscar equipe da empresa (managers + brokers)
+            // Buscar equipe da empresa (usando 'role' em vez de 'user_type')
             const { data: team, error: teamError } = await supabase
                 .from('users')
-                .select('id, user_type')
-                .eq('real_estate_company_id', companyId)
-                .in('user_type', ['manager', 'broker']);
+                .select('id, role')
+                .eq('company_id', companyId)
+                .in('role', ['manager', 'realtor']);
 
             if (teamError) {
                 logger.error('Erro ao buscar equipe:', teamError.message);
@@ -164,9 +189,8 @@ export const dashboardService = {
 
             const teamCount = team?.length || 0;
 
-            // Calcular faturamento (por enquanto estimativa baseada em vendas)
-            // Em produção, isso viria de uma tabela de transações
-            const averageTicket = 45000; // ticket médio estimado
+            // Calcular faturamento (ticket médio de R$ 450.000 para refletir o mercado luxo do demo)
+            const averageTicket = 450000;
             const totalRevenue = salesLeads.length * averageTicket;
 
             return {
@@ -190,11 +214,9 @@ export const dashboardService = {
 
     /**
      * Busca estatísticas consolidadas de todas as empresas do owner
-     * Para a página "Visão Geral"
      */
     async getOwnerOverviewStats(ownerId: string): Promise<OverviewStats> {
         try {
-            // Buscar todas as empresas do owner
             const companies = await this.getOwnerCompanies(ownerId);
 
             if (companies.length === 0) {
@@ -211,7 +233,7 @@ export const dashboardService = {
             // Buscar todos os leads de todas as empresas
             const { data: leads, error: leadsError } = await supabase
                 .from('leads')
-                .select('id, status, company_id')
+                .select('id, stage, company_id')
                 .in('company_id', companyIds);
 
             if (leadsError) {
@@ -219,14 +241,14 @@ export const dashboardService = {
             }
 
             const allLeads = leads || [];
-            const salesLeads = allLeads.filter(l => l.status === 'closed');
+            const salesLeads = allLeads.filter(l => l.stage === 'won');
 
             // Buscar toda equipe de todas as empresas
             const { data: team, error: teamError } = await supabase
                 .from('users')
                 .select('id')
-                .in('real_estate_company_id', companyIds)
-                .in('user_type', ['manager', 'broker']);
+                .in('company_id', companyIds)
+                .in('role', ['manager', 'realtor']);
 
             if (teamError) {
                 logger.error('Erro ao buscar equipe overview:', teamError.message);
@@ -234,8 +256,7 @@ export const dashboardService = {
 
             const teamCount = team?.length || 0;
 
-            // Calcular faturamento
-            const averageTicket = 45000;
+            const averageTicket = 450000;
             const totalRevenue = salesLeads.length * averageTicket;
 
             return {
@@ -256,7 +277,7 @@ export const dashboardService = {
     },
 
     /**
-     * Busca estatísticas por empresa para gráficos da Visão Geral
+     * Busca estatísticas por empresa para gráficos
      */
     async getCompaniesStatsForCharts(ownerId: string): Promise<CompanyStats[]> {
         try {
@@ -302,7 +323,11 @@ export const dashboardService = {
                 return [];
             }
 
-            return data || [];
+            // Mapear 'stage' para 'status' se o componente esperar 'status'
+            return (data || []).map(l => ({
+                ...l,
+                status: l.stage
+            }));
         } catch (error) {
             logger.error('Erro em getRecentLeads:', (error as Error).message);
             return [];
@@ -314,12 +339,11 @@ export const dashboardService = {
      */
     async getTopAgents(companyId: string, limit: number = 3) {
         try {
-            // Buscar corretores e gerentes ativos
             const { data: agents, error } = await supabase
                 .from('users')
-                .select('id, full_name, user_type, phone')
-                .eq('real_estate_company_id', companyId)
-                .in('user_type', ['manager', 'broker'])
+                .select('id, name, role, phone')
+                .eq('company_id', companyId)
+                .in('role', ['manager', 'realtor'])
                 .eq('active', true);
 
             if (error) {
@@ -331,24 +355,24 @@ export const dashboardService = {
                 return [];
             }
 
-            // Para cada agente, contar suas vendas
             const agentsWithSales = await Promise.all(
                 agents.map(async (agent) => {
                     const { count } = await supabase
                         .from('leads')
                         .select('id', { count: 'exact', head: true })
                         .eq('company_id', companyId)
-                        .eq('broker_id', agent.id)
-                        .eq('status', 'closed');
+                        .eq('assigned_to', agent.id)
+                        .eq('stage', 'won');
 
                     return {
                         ...agent,
+                        full_name: agent.name, // mapeia name para full_name
+                        user_type: agent.role === 'realtor' ? 'broker' : agent.role, // mapeia realtor para broker
                         sales: count || 0
                     };
                 })
             );
 
-            // Ordenar por vendas e limitar
             return agentsWithSales
                 .sort((a, b) => b.sales - a.sales)
                 .slice(0, limit);
@@ -356,5 +380,86 @@ export const dashboardService = {
             logger.error('Erro em getTopAgents:', (error as Error).message);
             return [];
         }
+    },
+
+    /**
+     * Busca leads sem atribuição
+     */
+    async getUnassignedLeads(companyId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('leads')
+                .select('*')
+                .eq('company_id', companyId)
+                .is('assigned_to', null)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                logger.error('Erro ao buscar leads sem atribuição:', error.message);
+                return [];
+            }
+
+            return (data || []).map(l => ({
+                ...l,
+                status: l.stage
+            }));
+        } catch (error) {
+            logger.error('Erro em getUnassignedLeads:', (error as Error).message);
+            return [];
+        }
+    },
+
+    /**
+     * Busca todos os leads de uma empresa
+     */
+    async getAllCompanyLeads(companyId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('leads')
+                .select('*')
+                .eq('company_id', companyId)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                logger.error('Erro ao buscar todos os leads:', error.message);
+                return [];
+            }
+
+            return (data || []).map(l => ({
+                ...l,
+                status: l.stage
+            }));
+        } catch (error) {
+            logger.error('Erro em getAllCompanyLeads:', (error as Error).message);
+            return [];
+        }
+    },
+
+    /**
+     * Busca todos os membros da equipe de uma empresa
+     */
+    async listTeam(companyId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('users')
+                .select('*')
+                .eq('company_id', companyId)
+                .in('role', ['manager', 'realtor']);
+
+            if (error) {
+                logger.error('Erro ao buscar equipe:', error.message);
+                return [];
+            }
+
+            return (data || []).map(u => ({
+                ...u,
+                full_name: u.name,
+                user_type: u.role === 'realtor' ? 'broker' : u.role
+            }));
+        } catch (error) {
+            logger.error('Erro em listTeam:', (error as Error).message);
+            return [];
+        }
     }
 };
+

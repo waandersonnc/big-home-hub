@@ -43,65 +43,88 @@ export default function Team() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const fetchData = async () => {
-        if (isDemo) {
-            // Map mock data to the internal structure
-            const mockMembers: TeamMemberDisplay[] = teamMembers.map(m => ({
-                ...m,
-                full_name: m.name,
-                user_type: m.role === 'Gerente' ? 'manager' : 'broker',
-                avatar_url: null,
-            }));
-            setMembers(mockMembers);
-            setLoading(false);
-            return;
-        }
+        let realMembers: TeamMemberDisplay[] = [];
+        let fetchedFromDb = false;
 
-        if (!selectedCompanyId) {
+        if (!isDemo && !selectedCompanyId) {
             setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
-            const [m, b] = await Promise.all([
-                teamService.listManagers(selectedCompanyId),
-                teamService.listBrokers(selectedCompanyId)
-            ]);
+            const companyId = isDemo
+                ? (selectedCompanyId?.startsWith('demo-') ? null : selectedCompanyId)
+                : selectedCompanyId;
 
-            const normalizedManagers: TeamMemberDisplay[] = m.map((u) => ({
-                id: u.id,
-                email: u.email,
-                phone: u.phone,
-                role: 'Gerente' as const,
-                name: u.full_name,
-                full_name: u.full_name,
-                leads: 0,
-                sales: 0,
-                avatar: u.full_name.substring(0, 2).toUpperCase(),
-                status: 'active' as const,
-                user_type: 'manager' as const,
-                photo_url: u.avatar_url || null,
-            }));
+            if (companyId) {
+                const [m, b] = await Promise.all([
+                    teamService.listManagers(companyId),
+                    teamService.listBrokers(companyId)
+                ]);
 
-            const normalizedBrokers: TeamMemberDisplay[] = b.map((u) => ({
-                id: u.id,
-                email: u.email,
-                phone: u.phone,
-                role: 'Corretor' as const,
-                name: u.full_name,
-                full_name: u.full_name,
-                leads: 0,
-                sales: 0,
-                avatar: u.full_name.substring(0, 2).toUpperCase(),
-                status: 'active' as const,
-                user_type: 'broker' as const,
-                photo_url: u.avatar_url || null,
-            }));
+                const normalizedManagers: TeamMemberDisplay[] = m.map((u) => ({
+                    id: u.id,
+                    email: u.email,
+                    phone: u.phone,
+                    role: 'Gerente' as const,
+                    name: u.full_name,
+                    full_name: u.full_name,
+                    leads: 0,
+                    sales: 0,
+                    avatar: u.full_name.substring(0, 2).toUpperCase(),
+                    status: 'active' as const,
+                    user_type: 'manager' as const,
+                    photo_url: u.avatar_url || null,
+                }));
 
-            setMembers([...normalizedManagers, ...normalizedBrokers]);
+                const normalizedBrokers: TeamMemberDisplay[] = b.map((u) => ({
+                    id: u.id,
+                    email: u.email,
+                    phone: u.phone,
+                    role: 'Corretor' as const,
+                    name: u.full_name,
+                    full_name: u.full_name,
+                    leads: 0,
+                    sales: 0,
+                    avatar: u.full_name.substring(0, 2).toUpperCase(),
+                    status: 'active' as const,
+                    user_type: 'broker' as const,
+                    photo_url: u.avatar_url || null,
+                }));
+
+                realMembers = [...normalizedManagers, ...normalizedBrokers];
+                if (realMembers.length > 0) {
+                    fetchedFromDb = true;
+                }
+            }
+
+            if (isDemo && !fetchedFromDb) {
+                // Map mock data only if no real data was found
+                const mockMembers: TeamMemberDisplay[] = teamMembers.map(m => ({
+                    ...m,
+                    full_name: m.name,
+                    user_type: m.role === 'Gerente' ? 'manager' : 'broker',
+                    avatar_url: null,
+                }));
+                setMembers(mockMembers);
+            } else {
+                setMembers(realMembers);
+            }
         } catch (error) {
-            const err = error as Error;
-            toast({ title: "Erro ao buscar equipe", description: err.message, variant: "destructive" });
+            console.error('Erro ao buscar equipe:', error);
+            if (isDemo) {
+                const mockMembers: TeamMemberDisplay[] = teamMembers.map(m => ({
+                    ...m,
+                    full_name: m.name,
+                    user_type: m.role === 'Gerente' ? 'manager' : 'broker',
+                    avatar_url: null,
+                }));
+                setMembers(mockMembers);
+            } else {
+                const err = error as Error;
+                toast({ title: "Erro ao buscar equipe", description: err.message, variant: "destructive" });
+            }
         } finally {
             setLoading(false);
         }

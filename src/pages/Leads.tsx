@@ -1,10 +1,12 @@
-import { useState } from 'react';
-import { Search, Filter, Phone, Mail, Calendar, MoreVertical, UserPlus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Filter, Phone, Mail, Calendar, MoreVertical, UserPlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { leads as initialLeads, teamMembers as initialMembers } from '@/data/mockData';
 import { demoStore } from '@/lib/demoStore';
+import { useCompany } from '@/contexts/CompanyContext';
+import { dashboardService } from '@/services/dashboard.service';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,46 +19,138 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 
+const STATUS_MAP: Record<string, string> = {
+    'new': 'Novo',
+    'contacted': 'Em Atendimento',
+    'visit_scheduled': 'Visita Agendada',
+    'proposal': 'Proposta',
+    'won': 'Vendido',
+    'lost': 'Perdido',
+    'waiting': 'Em Espera'
+};
+
 export default function Leads() {
     const isDemo = demoStore.isActive;
+    const { selectedCompanyId } = useCompany();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
+    const [leads, setLeads] = useState<any[]>([]);
+    const [agents, setAgents] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
     const { toast } = useToast();
 
-    const displayLeads = isDemo ? initialLeads : [];
-    const displayMembers = isDemo ? initialMembers : [];
+    // Force update state to trigger re-render
+    const [, setTick] = useState(0);
 
-    const filteredLeads = displayLeads.filter(lead => {
-        const matchesSearch = lead.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            lead.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            lead.phone.includes(searchTerm);
+    const fetchData = async () => {
+        let realLeads: any[] = [];
+        let realAgents: any[] = [];
+        let fetchedFromDb = false;
+
+        if (!isDemo && !selectedCompanyId) {
+            setLoading(false);
+            return;
+        }
+
+        setLoading(true);
+        try {
+            const companyId = isDemo
+                ? (selectedCompanyId?.startsWith('demo-') ? null : selectedCompanyId)
+                : selectedCompanyId;
+
+            if (companyId) {
+                const [unassignedLeads, team] = await Promise.all([
+                    dashboardService.getUnassignedLeads(companyId),
+                    dashboardService.listTeam(companyId)
+                ]);
+
+                realLeads = unassignedLeads.map(l => ({
+                    id: l.id,
+                    name: l.name,
+                    email: l.email,
+                    phone: l.phone,
+                    propertyInterest: l.property_interest || 'Imóvel sob consulta',
+                    origin: l.source || 'Website',
+                    status: STATUS_MAP[l.stage] || l.stage,
+                    createdAt: l.created_at,
+                    agent: null
+                }));
+
+                realAgents = team.map(u => ({
+                    id: u.id,
+                    name: u.full_name,
+                    avatar: u.full_name.substring(0, 2).toUpperCase(),
+                    status: u.active ? 'active' : 'inactive',
+                    role: u.user_type === 'broker' ? 'Corretor' : 'Gerente'
+                }));
+
+                if (realLeads.length > 0 || realAgents.length > 0) {
+                    fetchedFromDb = true;
+                }
+            }
+
+            if (isDemo && !fetchedFromDb) {
+                setLeads(initialLeads);
+                setAgents(initialMembers);
+            } else {
+                setLeads(realLeads);
+                setAgents(realAgents);
+            }
+        } catch (error) {
+            console.error('Erro ao buscar leads:', error);
+            if (isDemo) {
+                setLeads(initialLeads);
+                setAgents(initialMembers);
+            } else {
+                toast({ title: "Erro ao carregar dados", description: "Não foi possível carregar as oportunidades.", variant: "destructive" });
+            }
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, [selectedCompanyId, isDemo]);
+
+    const filteredLeads = leads.filter(lead => {
+        const nameMatch = lead.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+        const emailMatch = lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) || false;
+        const phoneMatch = lead.phone?.includes(searchTerm) || false;
+
+        const matchesSearch = nameMatch || emailMatch || phoneMatch;
         const matchesStatus = filterStatus ? lead.status === filterStatus : true;
         const isUnassigned = lead.agent === null;
         return matchesSearch && matchesStatus && isUnassigned;
     });
 
-    const activeAgents = displayMembers.filter(member => member.status === 'active' && member.role === 'Corretor');
-
-    // Force update state to trigger re-render
-    const [, setTick] = useState(0);
+    const activeAgents = agents.filter(member => member.status === 'active' && member.role === 'Corretor');
 
     const handleAssignAgent = (leadId: string, agentName: string) => {
-        const lead = displayLeads.find(l => l.id === leadId);
+        const lead = leads.find(l => l.id === leadId);
         if (lead) {
-            lead.agent = agentName;
-            lead.status = 'Em Espera';
+            // For now, in both modes we'll just update the local state for UX
+            // In a real app, we'd call an API here if !isDemo
+            setLeads(prev => prev.map(l =>
+                l.id === leadId ? { ...l, agent: agentName, status: 'Em Espera' } : l
+            ));
 
             toast({
                 title: "Corretor atribuído!",
                 description: `Lead atribuído para ${agentName} com sucesso.`,
             });
-
-            // Force re-render to remove from list
-            setTick(t => t + 1);
         }
     };
 
     const statuses = ['Novo', 'Em Espera', 'Em Atendimento', 'Documentação', 'Vendido'];
+
+    if (loading) {
+        return (
+            <div className="flex h-full items-center justify-center p-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     return (
         <div className="p-4 lg:p-6 space-y-6">

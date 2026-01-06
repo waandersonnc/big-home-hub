@@ -49,28 +49,41 @@ export default function AllDash() {
 
     useEffect(() => {
         async function fetchData() {
-            if (isDemo) {
-                setStats(demoStats);
-                setCompaniesData(demoData);
-                setIsLoading(false);
-                return;
-            }
-
-            if (!user) {
+            // Se não houver usuário e não estiver em modo demo, para
+            if (!user && !isDemo) {
                 setIsLoading(false);
                 return;
             }
 
             try {
+                // No modo demo, o ID do usuário já deve ser o do owner demo (definido no AuthContext)
+                // Usamos o ID do user ou o fallback fixo do demo se por algum motivo o user for null
+                const ownerId = user?.id || 'f6daa179-65ad-47db-a340-0bd31b3acbf5';
+
                 const [overviewStats, chartData] = await Promise.all([
-                    dashboardService.getOwnerOverviewStats(user.id),
-                    dashboardService.getCompaniesStatsForCharts(user.id)
+                    dashboardService.getOwnerOverviewStats(ownerId),
+                    dashboardService.getCompaniesStatsForCharts(ownerId)
                 ]);
 
-                setStats(overviewStats);
-                setCompaniesData(chartData);
+                // Se houver dados reais (pelo menos uma empresa cadastrada para esse owner)
+                if (overviewStats.totalCompanies > 0) {
+                    setStats(overviewStats);
+                    setCompaniesData(chartData);
+                } else if (isDemo) {
+                    // Se for demo e não houver dados no banco, usa os dados mockados
+                    setStats(demoStats);
+                    setCompaniesData(demoData);
+                } else {
+                    // Não é demo e não tem dados, apenas seta o que veio (provavelmente vazio)
+                    setStats(overviewStats);
+                    setCompaniesData(chartData);
+                }
             } catch (error) {
                 console.error('Erro ao buscar dados:', error);
+                if (isDemo) {
+                    setStats(demoStats);
+                    setCompaniesData(demoData);
+                }
             } finally {
                 setIsLoading(false);
             }

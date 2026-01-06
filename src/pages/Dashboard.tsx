@@ -125,38 +125,8 @@ export default function Dashboard() {
   // Fetch real data when company is selected
   useEffect(() => {
     async function fetchData() {
-      if (isDemo) {
-        // Use mock data for demo
-        setStats({
-          totalLeads: 247,
-          totalDocs: 30,
-          totalSales: 12,
-          totalRevenue: 485000,
-          teamCount: 50
-        });
-        setRecentLeads(mockLeads.slice(0, 5).map(l => ({
-          id: l.id,
-          name: l.name,
-          phone: l.phone,
-          origin: l.origin
-        })));
-        setTopAgents(teamMembers
-          .filter(m => m.status === 'active')
-          .sort((a, b) => b.sales - a.sales)
-          .slice(0, 3)
-          .map(m => ({
-            id: m.id,
-            name: m.name,
-            role: m.role,
-            sales: m.sales,
-            avatar: m.avatar
-          }))
-        );
-        setIsLoading(false);
-        return;
-      }
-
-      if (!selectedCompanyId) {
+      // Se não houver empresa selecionada e não for demo, reseta
+      if (!selectedCompanyId && !isDemo) {
         setStats({ totalLeads: 0, totalDocs: 0, totalSales: 0, totalRevenue: 0, teamCount: 0 });
         setRecentLeads([]);
         setTopAgents([]);
@@ -167,40 +137,81 @@ export default function Dashboard() {
       try {
         setIsLoading(true);
 
-        const [companyStats, leads, agents] = await Promise.all([
-          dashboardService.getCompanyStats(selectedCompanyId),
-          dashboardService.getRecentLeads(selectedCompanyId, 5),
-          dashboardService.getTopAgents(selectedCompanyId, 3)
-        ]);
+        // Se houver uma empresa selecionada (mesmo que seja uma do fallback demo), tenta buscar no banco
+        if (selectedCompanyId && !selectedCompanyId.startsWith('demo-')) {
+          const [companyStats, leads, agents] = await Promise.all([
+            dashboardService.getCompanyStats(selectedCompanyId),
+            dashboardService.getRecentLeads(selectedCompanyId, 5),
+            dashboardService.getTopAgents(selectedCompanyId, 3)
+          ]);
 
-        setStats(companyStats);
+          // Se encontramos dados reais no banco para esta empresa
+          if (companyStats.totalLeads > 0 || leads.length > 0) {
+            setStats(companyStats);
+            setRecentLeads(leads.map((l: any) => ({
+              id: l.id,
+              name: l.name,
+              phone: l.phone || 'Sem telefone',
+              origin: l.source || 'Desconhecido'
+            })));
+            setTopAgents(agents.map((a: any) => ({
+              id: a.id,
+              name: a.full_name,
+              role: a.user_type === 'manager' ? 'Gerente' : 'Corretor',
+              sales: a.sales,
+              avatar: a.full_name?.charAt(0).toUpperCase() || 'U'
+            })));
+            setIsLoading(false);
+            return;
+          }
+        }
 
-        // Map leads to display format
-        setRecentLeads(leads.map((l: any) => ({
-          id: l.id,
-          name: l.name,
-          phone: l.phone || 'Sem telefone',
-          origin: l.source || 'Desconhecido'
-        })));
-
-        // Map agents to display format
-        setTopAgents(agents.map((a: any) => ({
-          id: a.id,
-          name: a.full_name,
-          role: a.user_type === 'manager' ? 'Gerente' : 'Corretor',
-          sales: a.sales,
-          avatar: a.full_name?.charAt(0).toUpperCase() || 'U'
-        })));
-
+        // Se chegou aqui, ou é demo com empresa ID "demo-x", ou o banco está vazio
+        if (isDemo) {
+          setStats({
+            totalLeads: 247,
+            totalDocs: 30,
+            totalSales: 12,
+            totalRevenue: 485000,
+            teamCount: 50
+          });
+          setRecentLeads(mockLeads.slice(0, 5).map(l => ({
+            id: l.id,
+            name: l.name,
+            phone: l.phone,
+            origin: l.origin
+          })));
+          setTopAgents(teamMembers
+            .filter(m => m.status === 'active')
+            .sort((a, b) => b.sales - a.sales)
+            .slice(0, 3)
+            .map(m => ({
+              id: m.id,
+              name: m.name,
+              role: m.role,
+              sales: m.sales,
+              avatar: m.avatar
+            }))
+          );
+        } else {
+          // Não é demo e não tem dados ou empresa
+          setStats({ totalLeads: 0, totalDocs: 0, totalSales: 0, totalRevenue: 0, teamCount: 0 });
+          setRecentLeads([]);
+          setTopAgents([]);
+        }
       } catch (error) {
         console.error('Erro ao buscar dados do dashboard:', error);
+        // Em caso de erro no modo demo, garante que os dados mockados sejam exibidos
+        if (isDemo) {
+          setStats({ totalLeads: 247, totalDocs: 30, totalSales: 12, totalRevenue: 485000, teamCount: 50 });
+        }
       } finally {
         setIsLoading(false);
       }
     }
 
     fetchData();
-  }, [selectedCompanyId, isDemo]);
+  }, [selectedCompanyId, isDemo, selectedCompany]);
 
   // Memoize chart data
   const displayChartData = useMemo(() => {
