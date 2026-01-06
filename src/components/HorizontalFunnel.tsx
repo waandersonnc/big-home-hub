@@ -148,7 +148,7 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                         d={points.path}
                         fill="none"
                         stroke="#2563EB"
-                        strokeWidth="24"
+                        strokeWidth="8"
                         strokeOpacity="0.25"
                         filter="url(#softGlow)"
                     />
@@ -158,7 +158,7 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                         d={points.path}
                         fill="none"
                         stroke="#3B82F6"
-                        strokeWidth="16"
+                        strokeWidth="5"
                         strokeOpacity="0.45"
                         filter="url(#neonPulse)"
                     />
@@ -168,7 +168,7 @@ export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, classN
                         d={points.path}
                         fill="none"
                         stroke="#60A5FA"
-                        strokeWidth="8"
+                        strokeWidth="3"
                         strokeOpacity="0.6"
                         filter="url(#softGlow)"
                     />
