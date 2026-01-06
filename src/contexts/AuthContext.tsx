@@ -87,34 +87,53 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 };
             }
 
-            // 2. Check if staff (manager/broker)
-            const { data: staff, error: staffError } = await supabase
-                .from('users')
-                .select('id, email, name, phone, role, company_id, manager_id')
+            // 2. Check if manager
+            const { data: manager, error: managerError } = await supabase
+                .from('managers')
+                .select('id, email, name, phone, company_id')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
-            if (staffError) {
-                logger.error('Error fetching staff:', staffError.message);
+            if (managerError) {
+                logger.error('Error fetching manager:', managerError.message);
             }
 
-            if (staff) {
-                // Validate user_type (role in DB)
-                const userType = staff.role === 'realtor' ? 'broker' : staff.role;
-
+            if (manager) {
                 return {
-                    id: staff.id,
-                    email: staff.email,
-                    full_name: staff.name,
-                    phone: staff.phone,
-                    role: userType as UserType,
-                    real_estate_company_id: staff.company_id,
-                    manager_id: staff.manager_id
+                    id: manager.id,
+                    email: manager.email,
+                    full_name: manager.name,
+                    phone: manager.phone,
+                    role: 'manager',
+                    real_estate_company_id: manager.company_id
+                };
+            }
+
+            // 3. Check if broker
+            const { data: broker, error: brokerError } = await supabase
+                .from('brokers')
+                .select('id, email, name, phone, company_id, my_manager')
+                .eq('id', authUser.id)
+                .maybeSingle();
+
+            if (brokerError) {
+                logger.error('Error fetching broker:', brokerError.message);
+            }
+
+            if (broker) {
+                return {
+                    id: broker.id,
+                    email: broker.email,
+                    full_name: broker.name,
+                    phone: broker.phone,
+                    role: 'broker',
+                    real_estate_company_id: broker.company_id,
+                    manager_id: broker.my_manager
                 };
             }
 
             // User not found in any table
-            logger.error('User not found in owners or users table:', authUser.id);
+            logger.error('User not found in owners, managers or brokers table:', authUser.id);
             return null;
 
         } catch (error) {

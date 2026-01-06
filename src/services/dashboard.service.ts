@@ -115,19 +115,31 @@ export const dashboardService = {
     },
 
     /**
-     * Busca a empresa do user (manager/realtor) pelo company_id
+     * Busca a empresa do user (manager/broker) pelo company_id
      */
     async getUserCompany(userId: string): Promise<RealEstateCompany | null> {
         try {
-            // No banco real, a tabela users tem a coluna company_id
-            const { data: userData, error: userError } = await supabase
-                .from('users')
+            // Check if user is a manager
+            const { data: managerData } = await supabase
+                .from('managers')
                 .select('company_id')
                 .eq('id', userId)
-                .single();
+                .maybeSingle();
 
-            if (userError || !userData?.company_id) {
-                logger.error('Erro ao buscar company_id do user:', userError?.message);
+            let companyId = managerData?.company_id;
+
+            // If not a manager, check if broker
+            if (!companyId) {
+                const { data: brokerData } = await supabase
+                    .from('brokers')
+                    .select('company_id')
+                    .eq('id', userId)
+                    .maybeSingle();
+                companyId = brokerData?.company_id;
+            }
+
+            if (!companyId) {
+                logger.error('Empresa não encontrada para o usuário:', userId);
                 return null;
             }
 
@@ -135,7 +147,7 @@ export const dashboardService = {
             const { data, error } = await supabase
                 .from('real_estate_companies')
                 .select('*')
-                .eq('id', userData.company_id)
+                .eq('id', companyId)
                 .single();
 
             if (error) {
@@ -176,18 +188,18 @@ export const dashboardService = {
             const docsLeads = allLeads.filter(l => l.stage === 'proposal');
             const salesLeads = allLeads.filter(l => l.stage === 'won');
 
-            // Buscar equipe da empresa (usando 'role' em vez de 'user_type')
-            const { data: team, error: teamError } = await supabase
-                .from('users')
-                .select('id, role')
-                .eq('company_id', companyId)
-                .in('role', ['manager', 'realtor']);
+            // Buscar equipe da empresa (managers + brokers)
+            const { count: managersCount } = await supabase
+                .from('managers')
+                .select('id', { count: 'exact', head: true })
+                .eq('company_id', companyId);
 
-            if (teamError) {
-                logger.error('Erro ao buscar equipe:', teamError.message);
-            }
+            const { count: brokersCount } = await supabase
+                .from('brokers')
+                .select('id', { count: 'exact', head: true })
+                .eq('company_id', companyId);
 
-            const teamCount = team?.length || 0;
+            const teamCount = (managersCount || 0) + (brokersCount || 0);
 
             // Calcular faturamento (ticket médio de R$ 450.000 para refletir o mercado luxo do demo)
             const averageTicket = 450000;
@@ -244,17 +256,17 @@ export const dashboardService = {
             const salesLeads = allLeads.filter(l => l.stage === 'won');
 
             // Buscar toda equipe de todas as empresas
-            const { data: team, error: teamError } = await supabase
-                .from('users')
-                .select('id')
-                .in('company_id', companyIds)
-                .in('role', ['manager', 'realtor']);
+            const { count: managersCount } = await supabase
+                .from('managers')
+                .select('id', { count: 'exact', head: true })
+                .in('company_id', companyIds);
 
-            if (teamError) {
-                logger.error('Erro ao buscar equipe overview:', teamError.message);
-            }
+            const { count: brokersCount } = await supabase
+                .from('brokers')
+                .select('id', { count: 'exact', head: true })
+                .in('company_id', companyIds);
 
-            const teamCount = team?.length || 0;
+            const teamCount = (managersCount || 0) + (brokersCount || 0);
 
             const averageTicket = 450000;
             const totalRevenue = salesLeads.length * averageTicket;
@@ -339,19 +351,25 @@ export const dashboardService = {
      */
     async getTopAgents(companyId: string, limit: number = 3) {
         try {
-            const { data: agents, error } = await supabase
-                .from('users')
-                .select('id, name, role, phone')
+            // Buscar corretores e gestores
+            const { data: managers } = await supabase
+                .from('managers')
+                .select('id, name, phone')
                 .eq('company_id', companyId)
-                .in('role', ['manager', 'realtor'])
                 .eq('active', true);
 
-            if (error) {
-                logger.error('Erro ao buscar agentes:', error.message);
-                return [];
-            }
+            const { data: brokers } = await supabase
+                .from('brokers')
+                .select('id, name, phone')
+                .eq('company_id', companyId)
+                .eq('active', true);
 
-            if (!agents || agents.length === 0) {
+            const agents = [
+                ...(managers || []).map(m => ({ ...m, role: 'manager' })),
+                ...(brokers || []).map(b => ({ ...b, role: 'broker' }))
+            ];
+
+            if (agents.length === 0) {
                 return [];
             }
 
@@ -367,7 +385,7 @@ export const dashboardService = {
                     return {
                         ...agent,
                         full_name: agent.name, // mapeia name para full_name
-                        user_type: agent.role === 'realtor' ? 'broker' : agent.role, // mapeia realtor para broker
+                        user_type: agent.role,
                         sales: count || 0
                     };
                 })
@@ -440,21 +458,25 @@ export const dashboardService = {
      */
     async listTeam(companyId: string) {
         try {
-            const { data, error } = await supabase
-                .from('users')
+            const { data: managers } = await supabase
+                .from('managers')
                 .select('*')
-                .eq('company_id', companyId)
-                .in('role', ['manager', 'realtor']);
+                .eq('company_id', companyId);
 
-            if (error) {
-                logger.error('Erro ao buscar equipe:', error.message);
-                return [];
-            }
+            const { data: brokers } = await supabase
+                .from('brokers')
+                .select('*')
+                .eq('company_id', companyId);
 
-            return (data || []).map(u => ({
+            const combined = [
+                ...(managers || []).map(m => ({ ...m, role: 'manager' })),
+                ...(brokers || []).map(b => ({ ...b, role: 'broker' }))
+            ];
+
+            return combined.map(u => ({
                 ...u,
                 full_name: u.name,
-                user_type: u.role === 'realtor' ? 'broker' : u.role
+                user_type: u.role
             }));
         } catch (error) {
             logger.error('Erro em listTeam:', (error as Error).message);
