@@ -213,47 +213,69 @@ export const dashboardService = {
     },
 
     /**
-     * Busca estatísticas de uma empresa específica
+     * Busca estatísticas de uma empresa específica com filtro de período
      */
-    async getCompanyStats(companyId: string): Promise<DashboardStats> {
+    async getCompanyStats(companyId: string, period: 'month' | 'lastMonth' | 'year' = 'month'): Promise<DashboardStats> {
         try {
-            // Buscar leads da empresa (usando 'stage' em vez de 'status')
-            const { data: leads, error: leadsError } = await supabase
+            const now = new Date();
+            let startDate: string;
+            let endDate: string | null = null;
+
+            if (period === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            } else if (period === 'lastMonth') {
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+                endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999).toISOString();
+            } else if (period === 'year') {
+                // Últimos 12 meses (Mês atual + 11 meses anteriores)
+                startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString();
+            } else {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            }
+
+            // Buscar leads da empresa filtrados por data
+            let leadsQuery = supabase
                 .from('leads')
                 .select('id, stage')
-                .eq('company_id', companyId);
+                .eq('company_id', companyId)
+                .gte('created_at', startDate);
+
+            if (endDate) leadsQuery = leadsQuery.lte('created_at', endDate);
+
+            const { data: leads, error: leadsError } = await leadsQuery;
 
             if (leadsError) {
                 logger.error('Erro ao buscar leads:', leadsError.message);
             }
 
             const allLeads = leads || [];
-            const docsLeads = allLeads.filter(l => l.stage === 'documentação');
-            const salesLeads = allLeads.filter(l => l.stage === 'comprou');
+            const docsLeads = allLeads.filter(l => l.stage === 'documentação' || l.stage === 'Proposta');
+            const salesLeads = allLeads.filter(l => l.stage === 'comprou' || l.stage === 'Contrato');
 
-            // Buscar equipe da empresa (managers + brokers)
-            const { count: managersCount } = await supabase
-                .from('managers')
-                .select('id', { count: 'exact', head: true })
-                .eq('company_id', companyId);
-
-            const { count: brokersCount } = await supabase
-                .from('brokers')
-                .select('id', { count: 'exact', head: true })
-                .eq('company_id', companyId);
+            // Buscar equipe (não filtrada por data, pois reflete o time atual)
+            const [{ count: managersCount }, { count: brokersCount }] = await Promise.all([
+                supabase.from('managers').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
+                supabase.from('brokers').select('id', { count: 'exact', head: true }).eq('company_id', companyId)
+            ]);
 
             const teamCount = (managersCount || 0) + (brokersCount || 0);
 
-            // Faturamento real das transações finalizadas
-            const { data: transactions } = await supabase
+            // Faturamento filtrado por data
+            let revenueQuery = supabase
                 .from('financial_transactions')
-                .select('total_amount')
+                .select('total_amount, type')
                 .eq('company_id', companyId)
-                .in('type', ['sale', 'Receita'])
-                .eq('status', 'paid');
+                .in('type', ['sale', 'Receita', 'Venda'])
+                .eq('status', 'paid')
+                .gte('created_at', startDate);
+
+            if (endDate) revenueQuery = revenueQuery.lte('created_at', endDate);
+
+            const { data: transactions } = await revenueQuery;
 
             const totalRevenue = transactions?.reduce((acc, tx) => acc + (Number(tx.total_amount) || 0), 0) || 0;
 
+            // Total de imóveis (não filtrado por data)
             const { count: propertiesCount } = await supabase
                 .from('properties')
                 .select('id', { count: 'exact', head: true })
@@ -282,6 +304,98 @@ export const dashboardService = {
                 teamCount: 0,
                 totalProperties: 0
             };
+        }
+    },
+
+    /**
+     * Busca dados formatados para o gráfico de funil baseado no período
+     */
+    async getChartData(companyId: string, period: 'month' | 'lastMonth' | 'year' = 'month') {
+        try {
+            const now = new Date();
+            let startDate: Date;
+            let endDate: Date;
+            let isDaily = period !== 'year';
+
+            if (period === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            } else if (period === 'lastMonth') {
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+            } else {
+                // Últimos 12 meses rolantes
+                startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+                endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+            }
+
+            // Buscar Leads e Transações para o período
+            const [leadsResponse, transactionsResponse] = await Promise.all([
+                supabase.from('leads').select('created_at, stage').eq('company_id', companyId).gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString()),
+                supabase.from('financial_transactions').select('created_at, total_amount, type').eq('company_id', companyId).eq('status', 'paid').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
+            ]);
+
+            const leads = leadsResponse.data || [];
+            const transactions = transactionsResponse.data || [];
+
+            const chartPoints: any[] = [];
+
+            if (isDaily) {
+                const daysInMonth = endDate.getDate();
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dayLeads = leads.filter(l => new Date(l.created_at).getUTCDate() === i);
+                    const daySales = leads.filter(l => new Date(l.created_at).getUTCDate() === i && (l.stage === 'comprou' || l.stage === 'Contrato' || l.stage === 'vendido'));
+                    const dayDocs = leads.filter(l => new Date(l.created_at).getUTCDate() === i && (l.stage === 'documentação' || l.stage === 'Proposta'));
+                    const dayRevenue = transactions.filter(t => new Date(t.created_at).getUTCDate() === i && ['sale', 'Venda', 'Receita'].includes(t.type)).reduce((acc, t) => acc + (Number(t.total_amount) || 0), 0);
+
+                    chartPoints.push({
+                        date: i < 10 ? `0${i}` : `${i}`,
+                        fullDate: `${i}/${startDate.getMonth() + 1}`,
+                        leads: dayLeads.length,
+                        docs: dayDocs.length,
+                        sales: daySales.length,
+                        revenue: dayRevenue
+                    });
+                }
+            } else {
+                // Loop pelos últimos 12 meses a partir do startDate
+                for (let i = 0; i < 12; i++) {
+                    const currentMonthDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+                    const month = currentMonthDate.getMonth();
+                    const year = currentMonthDate.getFullYear();
+
+                    const monthLeads = leads.filter(l => {
+                        const d = new Date(l.created_at);
+                        return d.getUTCMonth() === month && d.getUTCFullYear() === year;
+                    });
+                    const monthSales = leads.filter(l => {
+                        const d = new Date(l.created_at);
+                        return d.getUTCMonth() === month && d.getUTCFullYear() === year && (l.stage === 'comprou' || l.stage === 'Contrato' || l.stage === 'vendido');
+                    });
+                    const monthDocs = leads.filter(l => {
+                        const d = new Date(l.created_at);
+                        return d.getUTCMonth() === month && d.getUTCFullYear() === year && (l.stage === 'documentação' || l.stage === 'Proposta');
+                    });
+                    const monthRevenue = transactions.filter(t => {
+                        const d = new Date(t.created_at);
+                        return d.getUTCMonth() === month && d.getUTCFullYear() === year && ['sale', 'Venda', 'Receita'].includes(t.type);
+                    }).reduce((acc, t) => acc + (Number(t.total_amount) || 0), 0);
+
+                    const monthLabel = currentMonthDate.toLocaleString('pt-BR', { month: 'short' }).replace('.', '');
+                    chartPoints.push({
+                        date: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+                        leads: monthLeads.length,
+                        docs: monthDocs.length,
+                        sales: monthSales.length,
+                        revenue: monthRevenue
+                    });
+                }
+            }
+
+            return chartPoints;
+        } catch (error) {
+            logger.error('Erro em getChartData:', (error as Error).message);
+            return [];
         }
     },
 
@@ -403,15 +517,13 @@ export const dashboardService = {
         }
     },
 
-    /**
-     * Busca leads recentes de uma empresa
-     */
-    async getRecentLeads(companyId: string, limit: number = 5) {
+    async getRecentLeads(companyId: string, limit: number = 4) {
         try {
             const { data, error } = await supabase
                 .from('leads')
                 .select('*')
                 .eq('company_id', companyId)
+                .eq('stage', 'novo')
                 .order('created_at', { ascending: false })
                 .limit(limit);
 
@@ -420,63 +532,67 @@ export const dashboardService = {
                 return [];
             }
 
-            // Mapear 'stage' para 'status' se o componente esperar 'status'
-            return (data || []).map(l => ({
-                ...l,
-                status: l.stage
-            }));
+            return data || [];
         } catch (error) {
             logger.error('Erro em getRecentLeads:', (error as Error).message);
             return [];
         }
     },
 
-    /**
-     * Busca top corretores de uma empresa
-     */
-    async getTopAgents(companyId: string, limit: number = 3) {
+    async getTopAgents(companyId: string, limit: number = 5, period: 'month' | 'lastMonth' | 'year' = 'month') {
         try {
-            // Buscar corretores e gestores
-            const { data: managers } = await supabase
-                .from('managers')
-                .select('id, name, phone')
-                .eq('company_id', companyId)
-                .eq('active', true);
+            const now = new Date();
+            let startDate: string;
+            let endDate: string | null = null;
 
+            if (period === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            } else if (period === 'lastMonth') {
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+                endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999).toISOString();
+            } else if (period === 'year') {
+                startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString();
+            } else {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            }
+
+            // Buscar apenas corretores ativos da empresa
             const { data: brokers } = await supabase
                 .from('brokers')
                 .select('id, name, phone')
                 .eq('company_id', companyId)
                 .eq('active', true);
 
-            const agents = [
-                ...(managers || []).map(m => ({ ...m, role: 'manager' })),
-                ...(brokers || []).map(b => ({ ...b, role: 'broker' }))
-            ];
-
-            if (agents.length === 0) {
+            if (!brokers || brokers.length === 0) {
                 return [];
             }
 
             const agentsWithSales = await Promise.all(
-                agents.map(async (agent) => {
-                    const { count } = await supabase
+                brokers.map(async (broker) => {
+                    let salesQuery = supabase
                         .from('leads')
                         .select('id', { count: 'exact', head: true })
                         .eq('company_id', companyId)
-                        .eq('assigned_to', agent.id)
-                        .eq('stage', 'comprou');
+                        .eq('assigned_to', broker.id)
+                        .in('stage', ['comprou', 'Contrato', 'vendido'])
+                        .gte('created_at', startDate);
+
+                    if (endDate) salesQuery = salesQuery.lte('created_at', endDate);
+
+                    const { count } = await salesQuery;
 
                     return {
-                        ...agent,
-                        full_name: agent.name, // mapeia name para full_name
-                        user_type: agent.role,
-                        sales: count || 0
+                        id: broker.id,
+                        full_name: broker.name,
+                        user_type: 'broker',
+                        sales: count || 0,
+                        avatar: broker.name?.charAt(0).toUpperCase() || 'B'
                     };
                 })
             );
 
             return agentsWithSales
+                .filter(a => a.sales > 0)
                 .sort((a, b) => b.sales - a.sales)
                 .slice(0, limit);
         } catch (error) {
@@ -513,6 +629,36 @@ export const dashboardService = {
     },
 
     /**
+     * Busca as últimas 5 distribuições (leads em espera com corretor atribuído)
+     */
+    async getRecentDistributions(companyId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('leads')
+                .select('id, name, updated_at, my_broker, brokers:my_broker(name)')
+                .eq('company_id', companyId)
+                .eq('stage', 'em espera')
+                .order('updated_at', { ascending: false })
+                .limit(5);
+
+            if (error) {
+                logger.error('Erro ao buscar distribuições recentes:', error.message);
+                return [];
+            }
+
+            return (data || []).map(l => ({
+                id: l.id,
+                lead: l.name,
+                broker: (l.brokers as any)?.name || 'N/A',
+                updatedAt: l.updated_at
+            }));
+        } catch (error) {
+            logger.error('Erro em getRecentDistributions:', (error as Error).message);
+            return [];
+        }
+    },
+
+    /**
      * Busca todos os leads de uma empresa
      */
     async getAllCompanyLeads(companyId: string) {
@@ -534,6 +680,36 @@ export const dashboardService = {
             }));
         } catch (error) {
             logger.error('Erro em getAllCompanyLeads:', (error as Error).message);
+            return [];
+        }
+    },
+
+    /**
+     * Busca a fila de corretores (quem está a mais tempo sem receber lead)
+     */
+    async getBrokerQueue(companyId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('brokers')
+                .select('id, name, recebeulead, leadsperdidos')
+                .eq('company_id', companyId)
+                .eq('active', true)
+                .order('recebeulead', { ascending: true, nullsFirst: true });
+
+            if (error) {
+                logger.error('Erro ao buscar fila de corretores:', error.message);
+                return [];
+            }
+
+            return (data || []).map((b, index) => ({
+                id: b.id,
+                name: b.name,
+                position: index + 1,
+                lostLeads: b.leadsperdidos || 0,
+                lastLeadAt: b.recebeulead
+            }));
+        } catch (error) {
+            logger.error('Erro em getBrokerQueue:', (error as Error).message);
             return [];
         }
     },
