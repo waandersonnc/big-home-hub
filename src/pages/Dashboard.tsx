@@ -125,28 +125,20 @@ export default function Dashboard() {
   // Fetch real data when company is selected
   useEffect(() => {
     async function fetchData() {
-      // Se não houver empresa selecionada e não for demo, reseta
-      if (!selectedCompanyId && !isDemo) {
-        setStats({ totalLeads: 0, totalDocs: 0, totalSales: 0, totalRevenue: 0, teamCount: 0 });
-        setRecentLeads([]);
-        setTopAgents([]);
-        setIsLoading(false);
-        return;
-      }
+      // Determine company ID
+      const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
 
       try {
         setIsLoading(true);
-
-        // Se houver uma empresa selecionada (mesmo que seja uma do fallback demo), tenta buscar no banco
-        if (selectedCompanyId && !selectedCompanyId.startsWith('demo-')) {
+        if (companyId) {
           const [companyStats, leads, agents] = await Promise.all([
-            dashboardService.getCompanyStats(selectedCompanyId),
-            dashboardService.getRecentLeads(selectedCompanyId, 5),
-            dashboardService.getTopAgents(selectedCompanyId, 3)
+            dashboardService.getCompanyStats(companyId),
+            dashboardService.getRecentLeads(companyId, 5),
+            dashboardService.getTopAgents(companyId, 3)
           ]);
 
-          // Se encontramos dados reais no banco para esta empresa
-          if (companyStats.totalLeads > 0 || leads.length > 0) {
+          // Se encontramos dados reais no banco para esta empresa OR we want to force DB for demo
+          if (companyStats.totalLeads > 0 || agents.length > 0 || !isDemo) {
             setStats(companyStats);
             setRecentLeads(leads.map((l: any) => ({
               id: l.id,
@@ -226,7 +218,9 @@ export default function Dashboard() {
     leads: stats?.totalLeads.toString() || '0',
     docs: stats?.totalDocs.toString() || '0',
     sales: stats?.totalSales.toString() || '0',
-    revenue: formatCurrency(stats?.totalRevenue || 0)
+    revenue: formatCurrency(stats?.totalRevenue || 0),
+    managers: stats?.managersCount.toString() || '0',
+    brokers: stats?.brokersCount.toString() || '0'
   };
 
   if (isLoading) {
@@ -257,13 +251,6 @@ export default function Dashboard() {
           trend={isDemo ? { value: 12, isPositive: true } : undefined}
         />
         <KPICard
-          title="Documentos"
-          value={kpiData.docs}
-          icon={Target}
-          color="purple"
-          trend={isDemo ? { value: 0.3, isPositive: true } : undefined}
-        />
-        <KPICard
           title="Vendas"
           value={kpiData.sales}
           icon={TrendingUp}
@@ -275,6 +262,12 @@ export default function Dashboard() {
           value={kpiData.revenue}
           icon={DollarSign}
           color="warning"
+        />
+        <KPICard
+          title="Documentos"
+          value={kpiData.docs}
+          icon={Target}
+          color="purple"
         />
       </div>
 

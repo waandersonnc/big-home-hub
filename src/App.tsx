@@ -21,6 +21,7 @@ import AllDash from "@/pages/AllDash";
 import Leads from "@/pages/Leads";
 import { OnboardingGuard } from "@/guards/OnboardingGuard";
 import { CompanyProvider } from "@/contexts/CompanyContext";
+import { LeadInformativeBlocker } from "@/components/LeadInformativeBlocker";
 import { AuthProvider } from "@/contexts/AuthContext";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <CompanyProvider>
+          <LeadInformativeBlocker />
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Navigate to="/login" replace />} />
@@ -47,7 +49,7 @@ const App = () => (
                 <Route element={<AppShell />}>
                   <Route path="/visao-geral" element={<AllDash />} />
                   <Route path="/painel" element={<Dashboard />} />
-                  <Route path="/oportunidades" element={<Leads />} />
+                  <Route path="/disponiveis" element={<Leads />} />
                   <Route path="/equipe" element={<Team />} />
                   <Route path="/anuncios" element={<Announcements />} />
                   <Route path="/imoveis" element={<Properties />} />

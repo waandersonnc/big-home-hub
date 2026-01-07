@@ -15,20 +15,6 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { dashboardService, OverviewStats, CompanyStats } from '@/services/dashboard.service';
 import { Loader2 } from 'lucide-react';
 
-// Demo data for demonstration mode
-const demoData: CompanyStats[] = [
-    { id: 'demo-1', name: 'BigHome Centro', leads: 400, revenue: 124000 },
-    { id: 'demo-2', name: 'BigHome Zona Sul', leads: 300, revenue: 98000 },
-    { id: 'demo-3', name: 'BigHome Jardins', leads: 200, revenue: 45000 },
-];
-
-const demoStats: OverviewStats = {
-    totalLeads: 900,
-    totalRevenue: 267000,
-    totalCompanies: 3,
-    teamCount: 50
-};
-
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
@@ -65,25 +51,21 @@ export default function AllDash() {
                     dashboardService.getCompaniesStatsForCharts(ownerId)
                 ]);
 
-                // Se houver dados reais (pelo menos uma empresa cadastrada para esse owner)
-                if (overviewStats.totalCompanies > 0) {
-                    setStats(overviewStats);
-                    setCompaniesData(chartData);
-                } else if (isDemo) {
-                    // Se for demo e não houver dados no banco, usa os dados mockados
-                    setStats(demoStats);
-                    setCompaniesData(demoData);
-                } else {
-                    // Não é demo e não tem dados, apenas seta o que veio (provavelmente vazio)
-                    setStats(overviewStats);
-                    setCompaniesData(chartData);
-                }
+                // Sempre usa o que vem do banco (ou zeros se o banco estiver vazio)
+                setStats(overviewStats);
+                setCompaniesData(chartData);
             } catch (error) {
-                console.error('Erro ao buscar dados:', error);
-                if (isDemo) {
-                    setStats(demoStats);
-                    setCompaniesData(demoData);
-                }
+                console.error('Erro ao buscar dados do Supabase:', error);
+                // Em caso de erro, garante que o estado não fique nulo, mostrando 0
+                setStats({
+                    totalLeads: 0,
+                    totalSales: 0,
+                    totalRevenue: 0,
+                    totalCompanies: 0,
+                    managersCount: 0,
+                    brokersCount: 0,
+                    totalProperties: 0
+                });
             } finally {
                 setIsLoading(false);
             }
@@ -100,11 +82,14 @@ export default function AllDash() {
         );
     }
 
-    const displayStats = stats || {
+    const displayStats: OverviewStats = stats || {
         totalLeads: 0,
+        totalSales: 0,
         totalRevenue: 0,
         totalCompanies: 0,
-        teamCount: 0
+        managersCount: 0,
+        brokersCount: 0,
+        totalProperties: 0
     };
 
     return (
@@ -114,19 +99,13 @@ export default function AllDash() {
                 <p className="text-muted-foreground">Métricas agregadas de todas as suas imobiliárias.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
                 <Card className="p-6 space-y-2 border-none shadow-soft">
                     <div className="flex items-center justify-between text-muted-foreground">
                         <span className="text-sm font-medium">Total de Leads</span>
                         <Users size={16} />
                     </div>
                     <div className="text-2xl font-bold">{displayStats.totalLeads.toLocaleString('pt-BR')}</div>
-                    {isDemo && (
-                        <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
-                            <TrendingUp size={12} />
-                            +12% este mês
-                        </div>
-                    )}
                 </Card>
 
                 <Card className="p-6 space-y-2 border-none shadow-soft">
@@ -135,29 +114,38 @@ export default function AllDash() {
                         <TrendingUp size={16} />
                     </div>
                     <div className="text-2xl font-bold">{formatCurrency(displayStats.totalRevenue)}</div>
-                    {isDemo && (
-                        <div className="text-xs text-emerald-500 font-bold flex items-center gap-1">
-                            <TrendingUp size={12} />
-                            +8% este mês
-                        </div>
-                    )}
                 </Card>
 
                 <Card className="p-6 space-y-2 border-none shadow-soft">
                     <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Imobiliárias Ativas</span>
+                        <span className="text-sm font-medium">Vendas Totais</span>
+                        <TrendingUp size={16} />
+                    </div>
+                    <div className="text-2xl font-bold">{displayStats.totalSales}</div>
+                </Card>
+
+                <Card className="p-6 space-y-2 border-none shadow-soft">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                        <span className="text-sm font-medium">Imóveis Totais</span>
                         <Building2 size={16} />
                     </div>
-                    <div className="text-2xl font-bold">{displayStats.totalCompanies}</div>
+                    <div className="text-2xl font-bold">{displayStats.totalProperties}</div>
                 </Card>
 
                 <Card className="p-6 space-y-2 border-none shadow-soft">
                     <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Equipe</span>
+                        <span className="text-sm font-medium">Gerentes</span>
                         <Users size={16} />
                     </div>
-                    <div className="text-2xl font-bold">{displayStats.teamCount}</div>
-                    <div className="text-xs text-muted-foreground">corretores + gerentes</div>
+                    <div className="text-2xl font-bold">{displayStats.managersCount}</div>
+                </Card>
+
+                <Card className="p-6 space-y-2 border-none shadow-soft">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                        <span className="text-sm font-medium">Corretores</span>
+                        <Users size={16} />
+                    </div>
+                    <div className="text-2xl font-bold">{displayStats.brokersCount}</div>
                 </Card>
             </div>
 

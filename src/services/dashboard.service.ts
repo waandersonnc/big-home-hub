@@ -25,14 +25,20 @@ export interface DashboardStats {
     totalDocs: number;
     totalSales: number;
     totalRevenue: number;
-    teamCount: number; // managers + brokers
+    managersCount: number;
+    brokersCount: number;
+    teamCount: number; // For backward compatibility if needed
+    totalProperties: number;
 }
 
 export interface OverviewStats {
     totalLeads: number;
+    totalSales: number;
     totalRevenue: number;
     totalCompanies: number;
-    teamCount: number;
+    managersCount: number;
+    brokersCount: number;
+    totalProperties: number;
 }
 
 export interface CompanyStats {
@@ -185,8 +191,8 @@ export const dashboardService = {
             }
 
             const allLeads = leads || [];
-            const docsLeads = allLeads.filter(l => l.stage === 'proposal');
-            const salesLeads = allLeads.filter(l => l.stage === 'won');
+            const docsLeads = allLeads.filter(l => l.stage === 'documentação');
+            const salesLeads = allLeads.filter(l => l.stage === 'comprou');
 
             // Buscar equipe da empresa (managers + brokers)
             const { count: managersCount } = await supabase
@@ -201,16 +207,31 @@ export const dashboardService = {
 
             const teamCount = (managersCount || 0) + (brokersCount || 0);
 
-            // Calcular faturamento (ticket médio de R$ 450.000 para refletir o mercado luxo do demo)
-            const averageTicket = 450000;
-            const totalRevenue = salesLeads.length * averageTicket;
+            // Faturamento real das transações finalizadas
+            const { data: transactions } = await supabase
+                .from('financial_transactions')
+                .select('total_amount')
+                .eq('company_id', companyId)
+                .in('type', ['sale', 'Receita'])
+                .eq('status', 'paid');
+
+            const totalRevenue = transactions?.reduce((acc, tx) => acc + (Number(tx.total_amount) || 0), 0) || 0;
+
+            const { count: propertiesCount } = await supabase
+                .from('properties')
+                .select('id', { count: 'exact', head: true })
+                .eq('company_id', companyId)
+                .eq('active', true);
 
             return {
                 totalLeads: allLeads.length,
                 totalDocs: docsLeads.length,
                 totalSales: salesLeads.length,
                 totalRevenue,
-                teamCount
+                managersCount: managersCount || 0,
+                brokersCount: brokersCount || 0,
+                teamCount,
+                totalProperties: propertiesCount || 0
             };
         } catch (error) {
             logger.error('Erro em getCompanyStats:', (error as Error).message);
@@ -219,7 +240,10 @@ export const dashboardService = {
                 totalDocs: 0,
                 totalSales: 0,
                 totalRevenue: 0,
-                teamCount: 0
+                managersCount: 0,
+                brokersCount: 0,
+                teamCount: 0,
+                totalProperties: 0
             };
         }
     },
@@ -234,56 +258,80 @@ export const dashboardService = {
             if (companies.length === 0) {
                 return {
                     totalLeads: 0,
+                    totalSales: 0,
                     totalRevenue: 0,
                     totalCompanies: 0,
-                    teamCount: 0
+                    managersCount: 0,
+                    brokersCount: 0,
+                    totalProperties: 0
                 };
             }
 
             const companyIds = companies.map(c => c.id);
 
-            // Buscar todos os leads de todas as empresas
+            // Buscar todos os leads vinculados ao owner
             const { data: leads, error: leadsError } = await supabase
                 .from('leads')
                 .select('id, stage, company_id')
-                .in('company_id', companyIds);
+                .eq('my_owner', ownerId);
 
             if (leadsError) {
                 logger.error('Erro ao buscar leads overview:', leadsError.message);
             }
 
             const allLeads = leads || [];
-            const salesLeads = allLeads.filter(l => l.stage === 'won');
+            const salesLeads = allLeads.filter(l => l.stage === 'comprou');
 
-            // Buscar toda equipe de todas as empresas
+            // Buscar toda equipe vinculada diretamente ao owner
             const { count: managersCount } = await supabase
                 .from('managers')
                 .select('id', { count: 'exact', head: true })
-                .in('company_id', companyIds);
+                .eq('my_owner', ownerId);
 
             const { count: brokersCount } = await supabase
                 .from('brokers')
                 .select('id', { count: 'exact', head: true })
-                .in('company_id', companyIds);
+                .eq('my_owner', ownerId);
 
-            const teamCount = (managersCount || 0) + (brokersCount || 0);
+            const managersTotal = managersCount || 0;
+            const brokersTotal = brokersCount || 0;
 
-            const averageTicket = 450000;
-            const totalRevenue = salesLeads.length * averageTicket;
+            // Buscar faturamento consolidado
+            const { data: revenueData } = await supabase
+                .from('financial_transactions')
+                .select('total_amount')
+                .eq('my_owner', ownerId)
+                .in('type', ['sale', 'Receita'])
+                .eq('status', 'paid');
+
+            const totalRevenue = revenueData?.reduce((acc, tx) => acc + (Number(tx.total_amount) || 0), 0) || 0;
+
+            // Buscar total de imóveis
+            const { count: propertiesCount } = await supabase
+                .from('properties')
+                .select('id', { count: 'exact', head: true })
+                .eq('my_owner', ownerId)
+                .eq('active', true);
 
             return {
                 totalLeads: allLeads.length,
+                totalSales: salesLeads.length,
                 totalRevenue,
                 totalCompanies: companies.length,
-                teamCount
+                managersCount: managersTotal,
+                brokersCount: brokersTotal,
+                totalProperties: propertiesCount || 0
             };
         } catch (error) {
             logger.error('Erro em getOwnerOverviewStats:', (error as Error).message);
             return {
                 totalLeads: 0,
+                totalSales: 0,
                 totalRevenue: 0,
                 totalCompanies: 0,
-                teamCount: 0
+                managersCount: 0,
+                brokersCount: 0,
+                totalProperties: 0
             };
         }
     },
@@ -380,7 +428,7 @@ export const dashboardService = {
                         .select('id', { count: 'exact', head: true })
                         .eq('company_id', companyId)
                         .eq('assigned_to', agent.id)
-                        .eq('stage', 'won');
+                        .eq('stage', 'comprou');
 
                     return {
                         ...agent,
@@ -409,7 +457,7 @@ export const dashboardService = {
                 .from('leads')
                 .select('*')
                 .eq('company_id', companyId)
-                .is('assigned_to', null)
+                .eq('stage', 'novo')
                 .order('created_at', { ascending: false });
 
             if (error) {
@@ -481,6 +529,144 @@ export const dashboardService = {
         } catch (error) {
             logger.error('Erro em listTeam:', (error as Error).message);
             return [];
+        }
+    },
+
+    /**
+     * Atualiza o estágio de um lead
+     */
+    async updateLeadStage(leadId: string, stage: string) {
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .update({ stage })
+                .eq('id', leadId);
+
+            if (error) {
+                logger.error('Erro ao atualizar estágio do lead:', error.message);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em updateLeadStage:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Inicia atendimento via WhatsApp, marcando o lead como devedor de informação
+     */
+    async startWhatsAppLead(leadId: string, authorName: string) {
+        try {
+            // Primeiro buscamos o histórico atual
+            const { data: lead } = await supabase
+                .from('leads')
+                .select('informative')
+                .eq('id', leadId)
+                .single();
+
+            const history = Array.isArray(lead?.informative) ? lead.informative : [];
+            const newHistory = [
+                ...history,
+                {
+                    text: "Iniciou atendimento via WhatsApp.",
+                    created_at: new Date().toISOString(),
+                    author: authorName,
+                    type: 'system_action'
+                }
+            ];
+
+            const { error } = await supabase
+                .from('leads')
+                .update({
+                    stage: 'em atendimento',
+                    owing_information: true,
+                    informative: newHistory
+                })
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em startWhatsAppLead:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Finaliza o registro obrigatório de informações do lead
+     */
+    async submitLeadInformative(params: {
+        leadId: string;
+        stage: string;
+        informativeText: string;
+        authorName: string;
+        closingData?: any;
+    }) {
+        try {
+            const { leadId, stage, informativeText, authorName, closingData } = params;
+
+            // Buscamos histórico atual
+            const { data: lead } = await supabase
+                .from('leads')
+                .select('informative')
+                .eq('id', leadId)
+                .single();
+
+            const history = Array.isArray(lead?.informative) ? lead.informative : [];
+            const newHistory = [
+                ...history,
+                {
+                    text: informativeText,
+                    created_at: new Date().toISOString(),
+                    author: authorName,
+                    type: 'user_note',
+                    next_stage: stage
+                }
+            ];
+
+            const { error } = await supabase
+                .from('leads')
+                .update({
+                    stage: stage,
+                    owing_information: false,
+                    informative: newHistory,
+                    closing_data: closingData || {}
+                })
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em submitLeadInformative:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Atribui um lead a um corretor e atualiza seu estágio e gestor
+     */
+    async assignLeadToBroker(leadId: string, brokerId: string, managerId: string | null) {
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .update({
+                    stage: 'em espera',
+                    my_broker: brokerId,
+                    my_manager: managerId
+                })
+                .eq('id', leadId);
+
+            if (error) {
+                logger.error('Erro ao atribuir corretor ao lead:', error.message);
+                return { success: false, error: error.message };
+            }
+
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em assignLeadToBroker:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
         }
     }
 };

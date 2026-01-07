@@ -19,7 +19,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { teamMembers, TeamMember } from '@/data/mockData';
+import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { demoStore } from '@/lib/demoStore';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -43,88 +43,87 @@ export default function Team() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const fetchData = async () => {
-        let realMembers: TeamMemberDisplay[] = [];
-        let fetchedFromDb = false;
-
-        if (!isDemo && !selectedCompanyId) {
+        if (!selectedCompanyId && !isDemo) {
+            setMembers([]);
             setLoading(false);
             return;
         }
 
         setLoading(true);
         try {
-            const companyId = isDemo
-                ? (selectedCompanyId?.startsWith('demo-') ? null : selectedCompanyId)
-                : selectedCompanyId;
+            // Priority: selectedCompanyId -> demo fixed ID if isDemo
+            const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
 
             if (companyId) {
-                const [m, b] = await Promise.all([
+                const [managers, brokers] = await Promise.all([
                     teamService.listManagers(companyId),
                     teamService.listBrokers(companyId)
                 ]);
 
-                const normalizedManagers: TeamMemberDisplay[] = m.map((u) => ({
-                    id: u.id,
-                    email: u.email,
-                    phone: u.phone,
-                    role: 'Gerente' as const,
-                    name: u.full_name,
-                    full_name: u.full_name,
-                    leads: 0,
-                    sales: 0,
-                    avatar: u.full_name.substring(0, 2).toUpperCase(),
-                    status: 'active' as const,
-                    user_type: 'manager' as const,
-                    photo_url: u.avatar_url || null,
-                }));
+                // Fetch lead counts for each member in this specific company
+                const leadCounts: Record<string, number> = {};
+                const salesCounts: Record<string, number> = {};
 
-                const normalizedBrokers: TeamMemberDisplay[] = b.map((u) => ({
-                    id: u.id,
-                    email: u.email,
-                    phone: u.phone,
-                    role: 'Corretor' as const,
-                    name: u.full_name,
-                    full_name: u.full_name,
-                    leads: 0,
-                    sales: 0,
-                    avatar: u.full_name.substring(0, 2).toUpperCase(),
-                    status: 'active' as const,
-                    user_type: 'broker' as const,
-                    photo_url: u.avatar_url || null,
-                }));
+                const { data: leadsData } = await supabase
+                    .from('leads')
+                    .select('id, my_broker, my_manager, stage')
+                    .eq('company_id', companyId);
 
-                realMembers = [...normalizedManagers, ...normalizedBrokers];
-                if (realMembers.length > 0) {
-                    fetchedFromDb = true;
+                if (leadsData) {
+                    leadsData.forEach(lead => {
+                        const memberId = lead.my_broker || lead.my_manager;
+                        if (memberId) {
+                            leadCounts[memberId] = (leadCounts[memberId] || 0) + 1;
+                            if (lead.stage === 'won' || lead.stage === 'Vendido') {
+                                salesCounts[memberId] = (salesCounts[memberId] || 0) + 1;
+                            }
+                        }
+                    });
                 }
-            }
 
-            if (isDemo && !fetchedFromDb) {
-                // Map mock data only if no real data was found
-                const mockMembers: TeamMemberDisplay[] = teamMembers.map(m => ({
-                    ...m,
-                    full_name: m.name,
-                    user_type: m.role === 'Gerente' ? 'manager' : 'broker',
-                    avatar_url: null,
+                const normalizedManagers: TeamMemberDisplay[] = managers.map((u: any) => ({
+                    id: u.id,
+                    email: u.email,
+                    phone: u.phone,
+                    role: 'Gerente',
+                    name: u.full_name || u.name,
+                    full_name: u.full_name || u.name,
+                    leads: leadCounts[u.id] || 0,
+                    sales: salesCounts[u.id] || 0,
+                    avatar: (u.full_name || u.name || 'G').substring(0, 2).toUpperCase(),
+                    status: (u.active === false ? 'inactive' : 'active'),
+                    user_type: 'manager',
+                    photo_url: u.avatar_url || null,
                 }));
-                setMembers(mockMembers);
+
+                const normalizedBrokers: TeamMemberDisplay[] = brokers.map((u: any) => ({
+                    id: u.id,
+                    email: u.email,
+                    phone: u.phone,
+                    role: 'Corretor',
+                    name: u.full_name || u.name,
+                    full_name: u.full_name || u.name,
+                    leads: leadCounts[u.id] || 0,
+                    sales: salesCounts[u.id] || 0,
+                    avatar: (u.full_name || u.name || 'C').substring(0, 2).toUpperCase(),
+                    status: (u.active === false ? 'inactive' : 'active'),
+                    user_type: 'broker',
+                    photo_url: u.avatar_url || null,
+                }));
+
+                setMembers([...normalizedManagers, ...normalizedBrokers]);
             } else {
-                setMembers(realMembers);
+                setMembers([]);
             }
         } catch (error) {
-            console.error('Erro ao buscar equipe:', error);
-            if (isDemo) {
-                const mockMembers: TeamMemberDisplay[] = teamMembers.map(m => ({
-                    ...m,
-                    full_name: m.name,
-                    user_type: m.role === 'Gerente' ? 'manager' : 'broker',
-                    avatar_url: null,
-                }));
-                setMembers(mockMembers);
-            } else {
-                const err = error as Error;
-                toast({ title: "Erro ao buscar equipe", description: err.message, variant: "destructive" });
-            }
+            console.error('Erro ao buscar equipe do Supabase:', error);
+            setMembers([]);
+            const err = error as Error;
+            toast({
+                title: "Erro ao carregar equipe",
+                description: "Não foi possível buscar os dados do Supabase.",
+                variant: "destructive"
+            });
         } finally {
             setLoading(false);
         }

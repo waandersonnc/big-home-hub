@@ -1,11 +1,13 @@
-import { useState } from 'react';
-import { DollarSign, TrendingUp, Target, Wallet, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DollarSign, TrendingUp, Target, Wallet, Calendar, Loader2 } from 'lucide-react';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { transactions as initialTransactions, revenueData as initialRevenue } from '@/data/mockData';
 import { demoStore } from '@/lib/demoStore';
+import { useCompany } from '@/contexts/CompanyContext';
+import { financialService } from '@/services/financial.service';
 import {
   Select,
   SelectContent,
@@ -24,16 +26,58 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 
-type TransactionType = 'all' | 'Venda' | 'Comissão' | 'Despesa';
-type TransactionStatus = 'all' | 'Pago' | 'Pendente' | 'Atrasado';
+type TransactionType = 'all' | 'Venda' | 'Comissão' | 'Despesa' | 'Receita';
+type TransactionStatus = 'all' | 'Pago' | 'Pendente' | 'Atrasado' | 'paid' | 'pending' | 'overdue';
 
 export default function Financial() {
   const isDemo = demoStore.isActive;
+  const { selectedCompanyId } = useCompany();
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<TransactionType>('all');
   const [statusFilter, setStatusFilter] = useState<TransactionStatus>('all');
 
-  const displayTransactions = isDemo ? initialTransactions : [];
-  const displayRevenue = isDemo ? initialRevenue : [];
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
+      if (companyId) {
+        const data = await financialService.listTransactions(companyId);
+        if (data && data.length > 0) {
+          const normalized = data.map(tx => ({
+            ...tx,
+            date: tx.due_date || tx.created_at,
+            value: tx.total_amount,
+            type: tx.type === 'sale' ? 'Venda' :
+              tx.type === 'commission' ? 'Comissão' :
+                tx.type === 'expense' ? 'Despesa' : tx.type,
+            status: tx.status === 'paid' ? 'Pago' :
+              tx.status === 'pending' ? 'Pendente' :
+                tx.status === 'overdue' ? 'Atrasado' : tx.status
+          }));
+          setTransactions(normalized);
+        } else if (isDemo) {
+          setTransactions(initialTransactions);
+        } else {
+          setTransactions([]);
+        }
+      } else if (isDemo) {
+        setTransactions(initialTransactions);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar financeiro:', error);
+      if (isDemo) setTransactions(initialTransactions);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedCompanyId, isDemo]);
+
+  const displayTransactions = transactions;
+  const displayRevenue = isDemo && transactions.length === initialTransactions.length ? initialRevenue : [];
 
   const filteredTransactions = displayTransactions.filter((tx) => {
     const matchesType = typeFilter === 'all' || tx.type === typeFilter;
@@ -41,9 +85,18 @@ export default function Financial() {
     return matchesType && matchesStatus;
   });
 
+  // Basic KPI calculation from current transactions
+  const revenueTotal = displayTransactions
+    .filter(tx => tx.type === 'Venda' || tx.type === 'Receita')
+    .reduce((acc, curr) => acc + (curr.value || 0), 0);
+
+  const commissionTotal = displayTransactions
+    .filter(tx => tx.type === 'Comissão' && tx.status === 'Pendente')
+    .reduce((acc, curr) => acc + (curr.value || 0), 0);
+
   const kpis = {
-    revenue: isDemo ? "R$ 45.800" : "R$ 0",
-    commissions: isDemo ? "R$ 12.450" : "R$ 0",
+    revenue: revenueTotal > 0 ? revenueTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : (isDemo ? "R$ 45.800" : "R$ 0"),
+    commissions: commissionTotal > 0 ? commissionTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : (isDemo ? "R$ 12.450" : "R$ 0"),
     avgTicket: isDemo ? "R$ 485.000" : "R$ 0",
     goalProgress: isDemo ? 65 : 0,
     goalDetail: isDemo ? "R$ 45.800 de R$ 70.000" : "R$ 0 de R$ 0"
@@ -189,51 +242,64 @@ export default function Financial() {
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b bg-muted/30">
-                <th className="text-left p-4 font-medium text-muted-foreground text-sm">Data</th>
-                <th className="text-left p-4 font-medium text-muted-foreground text-sm">Descrição</th>
-                <th className="text-left p-4 font-medium text-muted-foreground text-sm">Tipo</th>
-                <th className="text-right p-4 font-medium text-muted-foreground text-sm">Valor</th>
-                <th className="text-left p-4 font-medium text-muted-foreground text-sm">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((tx, index) => (
-                <tr
-                  key={tx.id}
-                  className={cn(
-                    'border-b last:border-0 hover:bg-muted/30 transition-colors',
-                    index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'
-                  )}
-                >
-                  <td className="p-4 text-sm text-muted-foreground whitespace-nowrap">
-                    {new Date(tx.date).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td className="p-4">
-                    <span className="font-medium text-card-foreground text-sm">{tx.description}</span>
-                  </td>
-                  <td className="p-4">
-                    <span className={cn('text-sm font-medium', getTypeColor(tx.type))}>
-                      {tx.type}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <span className={cn(
-                      'font-semibold',
-                      tx.type === 'Despesa' ? 'text-destructive' : 'text-success'
-                    )}>
-                      {tx.type === 'Despesa' ? '-' : '+'}{formatCurrency(tx.value)}
-                    </span>
-                  </td>
-                  <td className="p-4">
-                    <StatusBadge status={tx.status} />
-                  </td>
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <Loader2 className="animate-spin h-10 w-10 text-primary" />
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b bg-muted/30">
+                  <th className="text-left p-4 font-medium text-muted-foreground text-sm">Data</th>
+                  <th className="text-left p-4 font-medium text-muted-foreground text-sm">Descrição</th>
+                  <th className="text-left p-4 font-medium text-muted-foreground text-sm">Tipo</th>
+                  <th className="text-right p-4 font-medium text-muted-foreground text-sm">Valor</th>
+                  <th className="text-left p-4 font-medium text-muted-foreground text-sm">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filteredTransactions.map((tx, index) => (
+                  <tr
+                    key={tx.id}
+                    className={cn(
+                      'border-b last:border-0 hover:bg-muted/30 transition-colors',
+                      index % 2 === 0 ? 'bg-transparent' : 'bg-muted/10'
+                    )}
+                  >
+                    <td className="p-4 text-sm text-muted-foreground whitespace-nowrap">
+                      {new Date(tx.date).toLocaleDateString('pt-BR')}
+                    </td>
+                    <td className="p-4">
+                      <span className="font-medium text-card-foreground text-sm">{tx.description}</span>
+                    </td>
+                    <td className="p-4">
+                      <span className={cn('text-sm font-medium', getTypeColor(tx.type))}>
+                        {tx.type}
+                      </span>
+                    </td>
+                    <td className="p-4 text-right">
+                      <span className={cn(
+                        'font-semibold',
+                        tx.type === 'Despesa' ? 'text-destructive' : 'text-success'
+                      )}>
+                        {tx.type === 'Despesa' ? '-' : '+'}{formatCurrency(tx.value)}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <StatusBadge status={tx.status} />
+                    </td>
+                  </tr>
+                ))}
+                {filteredTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-10 text-center text-muted-foreground italic">
+                      Nenhuma transação encontrada.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>

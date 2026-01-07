@@ -18,35 +18,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { leads as initialLeads, Lead, teamMembers, properties } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { demoStore } from '@/lib/demoStore';
 import { useCompany } from '@/contexts/CompanyContext';
 import { dashboardService } from '@/services/dashboard.service';
 import { useToast } from '@/components/ui/use-toast';
+import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/contexts/AuthContext';
 
-type PipelineColumn = 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido';
+type PipelineColumn = 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido' | 'Removido';
 
 const columns: { id: PipelineColumn; title: string; color: string }[] = [
   { id: 'Em Espera', title: 'Em Espera', color: 'bg-muted' },
   { id: 'Em Atendimento', title: 'Em Atendimento', color: 'bg-primary/10' },
   { id: 'Documentação', title: 'Documentação', color: 'bg-warning/10' },
   { id: 'Vendido', title: 'Vendido', color: 'bg-success/10' },
+  { id: 'Removido', title: 'Removidos', color: 'bg-destructive/10' },
 ];
 
 const STAGE_TO_COLUMN: Record<string, PipelineColumn> = {
-  'new': 'Em Espera',
-  'contacted': 'Em Atendimento',
-  'visit_scheduled': 'Em Atendimento',
-  'proposal': 'Documentação',
-  'won': 'Vendido',
-  'waiting': 'Em Espera'
+  'novo': 'Em Espera',
+  'em atendimento': 'Em Atendimento',
+  'documentação': 'Documentação',
+  'comprou': 'Vendido',
+  'em espera': 'Em Espera',
+  'removido': 'Removido'
+};
+
+const COLUMN_TO_STAGE: Record<PipelineColumn, string> = {
+  'Em Espera': 'em espera',
+  'Em Atendimento': 'em atendimento',
+  'Documentação': 'documentação',
+  'Vendido': 'comprou',
+  'Removido': 'removido'
 };
 
 export default function Pipeline() {
   const isDemo = demoStore.isActive;
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
+  const { user } = useAuthContext();
 
   const [leads, setLeads] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
@@ -57,20 +68,16 @@ export default function Pipeline() {
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
-    let realLeads: any[] = [];
-    let realAgents: any[] = [];
-    let fetchedFromDb = false;
-
     if (!isDemo && !selectedCompanyId) {
+      setLeads([]);
+      setAgents([]);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     try {
-      const companyId = isDemo
-        ? (selectedCompanyId?.startsWith('demo-') ? null : selectedCompanyId)
-        : selectedCompanyId;
+      const companyId = selectedCompanyId || (isDemo ? 'f9b0b936-67f4-4ea0-8c13-b7fb2a9532c3' : null);
 
       if (companyId) {
         const [allLeads, team] = await Promise.all([
@@ -78,20 +85,21 @@ export default function Pipeline() {
           dashboardService.listTeam(companyId)
         ]);
 
-        realAgents = team.filter(u => u.user_type === 'broker').map(u => ({
+        const realAgents = team.filter(u => u.user_type === 'broker').map(u => ({
           id: u.id,
           name: u.full_name,
           avatar: u.full_name.substring(0, 2).toUpperCase(),
           status: u.active ? 'active' : 'inactive'
         }));
 
-        realLeads = allLeads.filter(l => l.assigned_to !== null).map(l => {
+        // Filtra leads que estão em stages do pipeline (não são 'novo')
+        const realLeads = allLeads.filter(l => l.stage !== 'novo').map(l => {
           const agent = team.find(u => u.id === l.assigned_to);
           return {
             id: l.id,
             name: l.name,
             phone: l.phone,
-            propertyInterest: l.property_interest || 'Imóvel sob consulta',
+            propertyInterest: l.interest || 'Imóvel sob consulta',
             agent: agent?.full_name || 'Desconhecido',
             agentAvatar: (agent?.full_name || 'U').substring(0, 2).toUpperCase(),
             status: STAGE_TO_COLUMN[l.stage] || 'Em Espera',
@@ -99,26 +107,17 @@ export default function Pipeline() {
           };
         });
 
-        if (realLeads.length > 0 || realAgents.length > 0) {
-          fetchedFromDb = true;
-        }
-      }
-
-      if (isDemo && !fetchedFromDb) {
-        setLeads(initialLeads);
-        setAgents(teamMembers.filter(m => m.role === 'Corretor'));
-      } else {
         setLeads(realLeads);
         setAgents(realAgents);
+      } else {
+        setLeads([]);
+        setAgents([]);
       }
     } catch (error) {
       console.error('Erro ao buscar pipeline:', error);
-      if (isDemo) {
-        setLeads(initialLeads);
-        setAgents(teamMembers.filter(m => m.role === 'Corretor'));
-      } else {
-        toast({ title: "Erro ao carregar dados", description: "Não foi possível carregar o pipeline.", variant: "destructive" });
-      }
+      setLeads([]);
+      setAgents([]);
+      toast({ title: "Erro ao carregar dados", description: "Não foi possível carregar o pipeline.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -126,6 +125,30 @@ export default function Pipeline() {
 
   useEffect(() => {
     fetchData();
+
+    if (!isDemo && selectedCompanyId) {
+      // Subscribe to changes in the leads table for this company
+      const channel = supabase
+        .channel('pipeline-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'leads',
+            filter: `company_id=eq.${selectedCompanyId}`
+          },
+          (payload) => {
+            console.log('Realtime update received:', payload);
+            fetchData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
   }, [selectedCompanyId, isDemo]);
 
   // Create a set of valid broker names for O(1) lookup
@@ -142,6 +165,26 @@ export default function Pipeline() {
     return nameMatch && matchesAgentFilter && isAssignedToBroker;
   });
 
+  const handleWhatsAppClick = async (lead: any) => {
+    // Only change status if it's currently 'Em Espera'
+    if (lead.status === 'Em Espera') {
+      const targetStatus: PipelineColumn = 'Em Atendimento';
+
+      // Update local state for immediate feedback
+      setLeads(leads.map((l) =>
+        l.id === lead.id ? { ...l, status: targetStatus } : l
+      ));
+
+      if (!isDemo && user) {
+        try {
+          await dashboardService.startWhatsAppLead(lead.id, user.full_name || user.email || 'Corretor');
+        } catch (err) {
+          console.error('Erro ao atualizar status via WhatsApp:', err);
+        }
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center p-12">
@@ -154,7 +197,7 @@ export default function Pipeline() {
     return filteredLeads.filter((lead) => lead.status === status);
   };
 
-  const handleDragStart = (e: React.DragEvent, lead: Lead) => {
+  const handleDragStart = (e: React.DragEvent, lead: any) => {
     setDraggedLead(lead);
     e.dataTransfer.effectAllowed = 'move';
   };
@@ -164,12 +207,38 @@ export default function Pipeline() {
     e.dataTransfer.dropEffect = 'move';
   };
 
-  const handleDrop = (e: React.DragEvent, targetStatus: PipelineColumn) => {
+  const handleDrop = async (e: React.DragEvent, targetStatus: PipelineColumn) => {
     e.preventDefault();
     if (draggedLead && draggedLead.status !== targetStatus) {
+      const dbStage = COLUMN_TO_STAGE[targetStatus];
+
+      // Update local state for immediate feedback
       setLeads(leads.map((lead) =>
         lead.id === draggedLead.id ? { ...lead, status: targetStatus } : lead
       ));
+
+      if (!isDemo) {
+        try {
+          const result = await dashboardService.updateLeadStage(draggedLead.id, dbStage);
+          if (!result.success) {
+            // Revert on error
+            toast({
+              title: "Erro ao atualizar",
+              description: "Não foi possível salvar a mudança no banco de dados.",
+              variant: "destructive"
+            });
+            fetchData(); // Reload from server
+          } else {
+            toast({
+              title: "Lead movido",
+              description: `Status atualizado para ${targetStatus}.`,
+            });
+          }
+        } catch (error) {
+          console.error('Erro ao atualizar stage:', error);
+          fetchData();
+        }
+      }
     }
     setDraggedLead(null);
   };
@@ -215,9 +284,7 @@ export default function Pipeline() {
                     <SelectValue placeholder="Selecione" />
                   </SelectTrigger>
                   <SelectContent>
-                    {properties.map((p) => (
-                      <SelectItem key={p.id} value={p.title}>{p.title}</SelectItem>
-                    ))}
+                    <SelectItem value="Imóvel sob consulta">Imóvel sob consulta</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -292,13 +359,11 @@ export default function Pipeline() {
           return (
             <div
               key={column.id}
-              className="flex-shrink-0 w-72 lg:w-80 snap-start"
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, column.id)}
+              className="flex-shrink-0 w-64 lg:w-72 snap-start"
             >
               {/* Column Header */}
-              <div className={cn('rounded-t-xl p-3 flex items-center justify-between', column.color)}>
-                <h3 className="font-semibold text-card-foreground">{column.title}</h3>
+              <div className={cn('rounded-t-xl p-2 flex items-center justify-between', column.color)}>
+                <h3 className="font-semibold text-xs text-card-foreground uppercase tracking-wider">{column.title}</h3>
                 <span className="flex h-6 w-6 items-center justify-center rounded-full bg-card text-xs font-medium">
                   {columnLeads.length}
                 </span>
@@ -309,30 +374,29 @@ export default function Pipeline() {
                 {columnLeads.map((lead) => (
                   <div
                     key={lead.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, lead)}
                     className={cn(
-                      'bg-card rounded-lg p-3 shadow-card border cursor-grab active:cursor-grabbing transition-all',
-                      'hover:shadow-soft animate-fade-in',
-                      draggedLead?.id === lead.id && 'opacity-50'
+                      'bg-card rounded-lg p-2.5 shadow-card border cursor-default transition-all',
+                      'hover:shadow-soft animate-fade-in'
                     )}
                   >
-                    <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-start justify-between mb-1">
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-card-foreground truncate">{lead.name}</h4>
+                        <h4 className="font-bold text-xs text-card-foreground truncate uppercase">{lead.name}</h4>
                         <a
-                          href={`tel:${lead.phone}`}
-                          className="flex items-center gap-1 text-sm text-primary hover:underline"
+                          href={`https://wa.me/55${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Oi ${lead.name.split(' ')[0]} tudo joia?`)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => handleWhatsAppClick(lead)}
+                          className="flex items-center gap-1 text-[10px] text-primary hover:underline opacity-90"
                         >
-                          <Phone className="h-3 w-3" />
+                          <Phone className="h-2.5 w-2.5" />
                           {lead.phone}
                         </a>
                       </div>
-                      <GripVertical className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
 
                     {lead.propertyInterest && (
-                      <p className="text-xs text-muted-foreground mb-2 truncate">
+                      <p className="text-[10px] text-muted-foreground mb-1.5 truncate">
                         🏠 {lead.propertyInterest}
                       </p>
                     )}

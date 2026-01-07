@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Search, Bed, Bath, Car, Maximize, Home } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, Bed, Bath, Car, Maximize, Home, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,26 +20,74 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { properties as initialProperties, Property } from '@/data/mockData';
+import { properties as initialProperties, Property as MockProperty } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 import { demoStore } from '@/lib/demoStore';
+import { useCompany } from '@/contexts/CompanyContext';
+import { propertyService } from '@/services/property.service';
 
-type TypeFilter = 'all' | Property['type'];
-type StatusFilter = 'all' | Property['status'];
+type TypeFilter = 'all' | MockProperty['type'];
+type StatusFilter = 'all' | MockProperty['status'] | 'available' | 'reserved' | 'sold' | 'rented';
 
 export default function Properties() {
   const isDemo = demoStore.isActive;
+  const { selectedCompanyId } = useCompany();
+  const [properties, setProperties] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  const displayProperties = isDemo ? initialProperties : [];
+  const fetchData = async () => {
+    if (!selectedCompanyId && !isDemo) {
+      setProperties([]);
+      setLoading(false);
+      return;
+    }
 
-  const filteredProperties = displayProperties.filter((property) => {
+    setLoading(true);
+    try {
+      const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
+
+      if (companyId) {
+        const data = await propertyService.listProperties(companyId);
+        if (data && data.length > 0) {
+          const normalized = data.map(p => ({
+            ...p,
+            type: p.property_type,
+            parking: p.parking_spaces,
+            area: p.area_total,
+            status: p.status === 'available' ? 'Disponível' :
+              p.status === 'reserved' ? 'Reservado' :
+                p.status === 'sold' ? 'Vendido' :
+                  p.status === 'rented' ? 'Locado' : p.status,
+            image: `linear-gradient(135deg, ${['#667eea', '#f093fb', '#4facfe', '#43e97b', '#fa709a', '#a8edea'][Math.floor(Math.random() * 6)]} 0%, ${['#764ba2', '#f5576c', '#00f2fe', '#38f9d7', '#fee140', '#fed6e3'][Math.floor(Math.random() * 6)]} 100%)`
+          }));
+          setProperties(normalized);
+        } else {
+          setProperties([]);
+        }
+      } else {
+        setProperties([]);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar imóveis do Supabase:', error);
+      setProperties([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedCompanyId, isDemo]);
+
+  const filteredProperties = properties.filter((property) => {
+    const title = property.title || '';
     const matchesType = typeFilter === 'all' || property.type === typeFilter;
     const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
-    const matchesSearch = property.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = title.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesType && matchesStatus && matchesSearch;
   });
 
@@ -193,69 +241,80 @@ export default function Properties() {
       </div>
 
       {/* Properties Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredProperties.map((property, index) => (
-          <div
-            key={property.id}
-            className="bg-card rounded-xl shadow-card border overflow-hidden animate-fade-in group"
-            style={{ animationDelay: `${index * 0.1}s` }}
-          >
-            {/* Image */}
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="animate-spin h-10 w-10 text-primary" />
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredProperties.map((property, index) => (
             <div
-              className="relative h-40 flex items-center justify-center"
-              style={{ background: property.image }}
+              key={property.id}
+              className="bg-card rounded-xl shadow-card border overflow-hidden animate-fade-in group"
+              style={{ animationDelay: `${index * 0.1}s` }}
             >
-              <Home className="h-12 w-12 text-white/50" />
-              <div className="absolute top-3 right-3">
-                <StatusBadge status={property.status} />
+              {/* Image */}
+              <div
+                className="relative h-40 flex items-center justify-center"
+                style={{ background: property.image }}
+              >
+                <Home className="h-12 w-12 text-white/50" />
+                <div className="absolute top-3 right-3">
+                  <StatusBadge status={property.status} />
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-4">
+                <h3 className="font-semibold text-card-foreground mb-1 group-hover:text-primary transition-colors">
+                  {property.title}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3 truncate">{property.address}</p>
+                <p className="text-xl font-bold text-primary mb-4">{formatPrice(property.price)}</p>
+
+                {/* Specs */}
+                {property.type !== 'Terreno' && (
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                    <span className="flex items-center gap-1">
+                      <Bed className="h-4 w-4" />
+                      {property.bedrooms}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Bath className="h-4 w-4" />
+                      {property.bathrooms}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Car className="h-4 w-4" />
+                      {property.parking}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Maximize className="h-4 w-4" />
+                      {property.area}m²
+                    </span>
+                  </div>
+                )}
+                {property.type === 'Terreno' && (
+                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+                    <span className="flex items-center gap-1">
+                      <Maximize className="h-4 w-4" />
+                      {property.area}m²
+                    </span>
+                  </div>
+                )}
+
+                <Button variant="outline" className="w-full">
+                  Ver Detalhes
+                </Button>
               </div>
             </div>
-
-            {/* Content */}
-            <div className="p-4">
-              <h3 className="font-semibold text-card-foreground mb-1 group-hover:text-primary transition-colors">
-                {property.title}
-              </h3>
-              <p className="text-sm text-muted-foreground mb-3 truncate">{property.address}</p>
-              <p className="text-xl font-bold text-primary mb-4">{formatPrice(property.price)}</p>
-
-              {/* Specs */}
-              {property.type !== 'Terreno' && (
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                  <span className="flex items-center gap-1">
-                    <Bed className="h-4 w-4" />
-                    {property.bedrooms}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Bath className="h-4 w-4" />
-                    {property.bathrooms}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Car className="h-4 w-4" />
-                    {property.parking}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Maximize className="h-4 w-4" />
-                    {property.area}m²
-                  </span>
-                </div>
-              )}
-              {property.type === 'Terreno' && (
-                <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-                  <span className="flex items-center gap-1">
-                    <Maximize className="h-4 w-4" />
-                    {property.area}m²
-                  </span>
-                </div>
-              )}
-
-              <Button variant="outline" className="w-full">
-                Ver Detalhes
-              </Button>
+          ))}
+          {filteredProperties.length === 0 && (
+            <div className="col-span-full py-20 text-center bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+              <p className="text-muted-foreground font-medium italic">Nenhum imóvel encontrado.</p>
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
