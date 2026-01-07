@@ -5,12 +5,21 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RoleBasedMenu } from '@/components/RoleBasedMenu';
 import { demoStore } from '@/lib/demoStore';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useCompany } from '@/contexts/CompanyContext';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const { isLoading: authLoading } = useAuthContext();
+  const { isLoading: companyLoading } = useCompany();
   const isDemo = demoStore.isActive;
+
+  if (authLoading || companyLoading) {
+    return <LoadingScreen message="Preparando seu ambiente..." />;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 relative">

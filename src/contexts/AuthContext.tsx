@@ -213,7 +213,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }, []);
 
     // Demo mode handling
-    const isDemo = demoStore.isActive;
+    const [isDemo, setIsDemo] = useState(demoStore.isActive);
+
+    // Sync isDemo state with demoStore
+    useEffect(() => {
+        const unsubscribe = demoStore.subscribe((active) => {
+            setIsDemo(active);
+        });
+
+        // Initial check
+        if (demoStore.isActive !== isDemo) {
+            setIsDemo(demoStore.isActive);
+        }
+
+        // Listen for storage events (for other tabs)
+        const checkStorage = () => setIsDemo(demoStore.isActive);
+        window.addEventListener('storage', checkStorage);
+
+        return () => {
+            unsubscribe();
+            window.removeEventListener('storage', checkStorage);
+        };
+    }, [isDemo]);
 
     // Demo owner data - used when demo mode is active
     const demoOwner: AuthUser = {

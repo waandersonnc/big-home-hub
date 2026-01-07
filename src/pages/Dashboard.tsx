@@ -8,6 +8,7 @@ import { useCompany } from '@/contexts/CompanyContext';
 import { dashboardService, DashboardStats } from '@/services/dashboard.service';
 import { CHART_CONFIG, UI_TEXT } from '@/lib/constants';
 import { HorizontalFunnel } from '@/components/HorizontalFunnel';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import {
   Select,
   SelectContent,
@@ -252,11 +253,7 @@ export default function Dashboard() {
   };
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[50vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingScreen message="Carregando estatísticas do painel..." />;
   }
 
   return (
@@ -485,8 +482,8 @@ export default function Dashboard() {
                 <div
                   key={agent.id}
                   className={`flex items-center gap-2.5 p-2 rounded-xl transition-all duration-200 border ${index < 2
-                      ? 'bg-success/15 border-success/20'
-                      : 'bg-white/5 border-white/5 hover:bg-white/10'
+                    ? 'bg-success/15 border-success/20'
+                    : 'bg-white/5 border-white/5 hover:bg-white/10'
                     }`}
                 >
                   <div className="relative flex-shrink-0">

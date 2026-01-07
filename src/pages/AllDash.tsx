@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { dashboardService, OverviewStats, CompanyStats } from '@/services/dashboard.service';
-import { Loader2 } from 'lucide-react';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -75,11 +75,7 @@ export default function AllDash() {
     }, [user, isDemo]);
 
     if (isLoading) {
-        return (
-            <div className="flex items-center justify-center min-h-[50vh]">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
-        );
+        return <LoadingScreen message="Consolidando métricas de suas unidades..." />;
     }
 
     const displayStats: OverviewStats = stats || {

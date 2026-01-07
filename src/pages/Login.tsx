@@ -9,6 +9,7 @@ import { demoStore } from '@/lib/demoStore';
 import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import TokenVerificationModal from '@/components/TokenVerificationModal';
+import { LoadingScreen } from '@/components/LoadingScreen';
 
 interface OwnerData {
   id: string;
@@ -23,19 +24,27 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
 
   // Token verification modal state
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [ownerData, setOwnerData] = useState<OwnerData | null>(null);
 
   const handleDemo = async () => {
+    setIsDemoLoading(true);
     localStorage.removeItem('is_demo');
-    demoStore.activate();
-    navigate('/painel');
-    toast({
-      title: "Modo Demonstrativo",
-      description: "Você está acessando uma versão de demonstração.",
-    });
+
+    // Pequena demora para garantir que o contexto perceba a mudança social
+    // e para mostrar nossa tela de loading premium
+    setTimeout(() => {
+      demoStore.activate();
+      navigate('/painel');
+      toast({
+        title: "Modo Demonstrativo",
+        description: "Você está acessando uma versão de demonstração.",
+      });
+      // O isDemoLoading será desmontado quando navegarmos para a nova página
+    }, 1500);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -186,6 +195,8 @@ export default function Login() {
 
   return (
     <>
+      {isDemoLoading && <LoadingScreen message="Iniciando modo demonstração..." />}
+
       {/* Token Verification Modal */}
       {showVerificationModal && ownerData && (
         <TokenVerificationModal

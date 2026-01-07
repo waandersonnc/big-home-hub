@@ -45,9 +45,10 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
+            setIsLoading(true);
             let fetchedCompanies: Company[] = [];
 
-            if (isOwner || (isDemo && !user?.real_estate_company_id)) {
+            if (isOwner || (authIsDemo && !user?.real_estate_company_id)) {
                 // Owner (ou Demo sem ID da empresa): buscar todas as empresas que possui
                 const searchId = user?.id || 'f6daa179-65ad-47db-a340-0bd31b3acbf5';
                 const { data, error } = await supabase
@@ -64,11 +65,12 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
                         name: c.name,
                         logo_url: c.logo_url
                     }));
-                } else if (isDemo) {
+                } else if (authIsDemo) {
                     // Fallback para dados mockados se não houver nada no banco para o modo demo
                     fetchedCompanies = DEMO_COMPANIES;
                 }
-            } else if (isManager || isBroker) {
+            }
+            else if (isManager || isBroker) {
                 // Manager/Broker: buscar empresa vinculada
                 const { data: userData, error: userError } = await supabase
                     .from('users')
