@@ -121,6 +121,43 @@ export const dashboardService = {
     },
 
     /**
+     * Busca informações de uma empresa específica
+     */
+    async getCompanyInfo(companyId: string) {
+        try {
+            const { data, error } = await supabase
+                .from('real_estate_companies')
+                .select('*')
+                .eq('id', companyId)
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            logger.error('Erro em getCompanyInfo:', (error as Error).message);
+            return null;
+        }
+    },
+
+    /**
+     * Atualiza a meta de uma imobiliária
+     */
+    async updateCompanyMeta(companyId: string, meta: number) {
+        try {
+            const { error } = await supabase
+                .from('real_estate_companies')
+                .update({ meta })
+                .eq('id', companyId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em updateCompanyMeta:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
      * Busca a empresa do user (manager/broker) pelo company_id
      */
     async getUserCompany(userId: string): Promise<RealEstateCompany | null> {
@@ -603,9 +640,10 @@ export const dashboardService = {
         informativeText: string;
         authorName: string;
         closingData?: any;
+        document_urls?: string[];
     }) {
         try {
-            const { leadId, stage, informativeText, authorName, closingData } = params;
+            const { leadId, stage, informativeText, authorName, closingData, document_urls } = params;
 
             // Buscamos histórico atual
             const { data: lead } = await supabase
@@ -632,7 +670,8 @@ export const dashboardService = {
                     stage: stage,
                     owing_information: false,
                     informative: newHistory,
-                    closing_data: closingData || {}
+                    closing_data: closingData || {},
+                    document_urls: document_urls || []
                 })
                 .eq('id', leadId);
 
@@ -645,27 +684,82 @@ export const dashboardService = {
     },
 
     /**
-     * Atribui um lead a um corretor e atualiza seu estágio e gestor
+     * Cria um registro de documento enviado para um lead
      */
-    async assignLeadToBroker(leadId: string, brokerId: string, managerId: string | null) {
+    async createLeadDocument(params: {
+        my_owner: string;
+        company_id: string;
+        my_manager: string;
+        my_broker: string;
+        lead_id: string;
+        cpf: string;
+        correspondent_name: string;
+        income_type: 'formal' | 'informal' | 'mista';
+        is_cotista: boolean;
+        has_social_factor: boolean;
+        file_urls: string[];
+    }) {
         try {
             const { error } = await supabase
-                .from('leads')
-                .update({
-                    stage: 'em espera',
-                    my_broker: brokerId,
-                    my_manager: managerId
-                })
-                .eq('id', leadId);
+                .from('lead_documents')
+                .insert([params]);
 
-            if (error) {
-                logger.error('Erro ao atribuir corretor ao lead:', error.message);
-                return { success: false, error: error.message };
-            }
-
+            if (error) throw error;
             return { success: true };
         } catch (error) {
-            logger.error('Erro em assignLeadToBroker:', (error as Error).message);
+            logger.error('Erro em createLeadDocument:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Busca todas as vendas de uma empresa no mês atual
+     */
+    async getMonthlySales(companyId: string) {
+        try {
+            const now = new Date();
+            const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+            const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+            const { data, error } = await supabase
+                .from('lead_sales')
+                .select('*')
+                .eq('company_id', companyId)
+                .gte('created_at', firstDay)
+                .lte('created_at', lastDay);
+
+            if (error) throw error;
+            return data || [];
+        } catch (error) {
+            logger.error('Erro em getMonthlySales:', (error as Error).message);
+            return [];
+        }
+    },
+
+    /**
+     * Cria um registro de venda concluída para um lead
+     */
+    async createLeadSale(params: {
+        my_owner: string;
+        company_id: string;
+        my_manager: string;
+        my_broker: string;
+        lead_id: string;
+        product_type: 'apartamento' | 'casa' | 'outro';
+        construction_status: 'pronto' | 'na planta';
+        sale_value: number;
+        payment_method?: string;
+        observation?: string;
+    }) {
+        try {
+            const { error } = await supabase
+                .from('lead_sales')
+                .insert([params]);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em createLeadSale:', (error as Error).message);
             return { success: false, error: (error as Error).message };
         }
     }

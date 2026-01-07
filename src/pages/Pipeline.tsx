@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Phone, GripVertical, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import { dashboardService } from '@/services/dashboard.service';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { LeadDetailModal } from '@/components/LeadDetailModal';
 
 type PipelineColumn = 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido' | 'Removido';
 
@@ -65,7 +66,22 @@ export default function Pipeline() {
   const [agentFilter, setAgentFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draggedLead, setDraggedLead] = useState<any | null>(null);
+  const [selectedLead, setSelectedLead] = useState<any | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const longPressTimer = useRef<any>(null);
+
+  const startLongPress = (lead: any) => {
+    longPressTimer.current = setTimeout(() => {
+      handleCardClick(lead);
+    }, 600); // 600ms para o clique longo
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+    }
+  };
 
   const fetchData = async () => {
     if (!isDemo && !selectedCompanyId) {
@@ -94,7 +110,7 @@ export default function Pipeline() {
 
         // Filtra leads que estão em stages do pipeline (não são 'novo')
         const realLeads = allLeads.filter(l => l.stage !== 'novo').map(l => {
-          const agent = team.find(u => u.id === l.assigned_to);
+          const agent = team.find(u => u.id === l.my_broker);
           return {
             id: l.id,
             name: l.name,
@@ -102,8 +118,13 @@ export default function Pipeline() {
             propertyInterest: l.interest || 'Imóvel sob consulta',
             agent: agent?.full_name || 'Desconhecido',
             agentAvatar: (agent?.full_name || 'U').substring(0, 2).toUpperCase(),
+            origin: l.source || 'Website',
+            // Novos campos para o detalhe
+            rawStage: l.stage,
             status: STAGE_TO_COLUMN[l.stage] || 'Em Espera',
-            origin: l.source || 'Website'
+            informative: l.informative || [],
+            closing_data: l.closing_data || {},
+            created_at: l.created_at
           };
         });
 
@@ -158,11 +179,9 @@ export default function Pipeline() {
     const nameMatch = lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false;
     const matchesAgentFilter = agentFilter === 'all' || lead.agent === agentFilter;
 
-    // Only show leads assigned to a valid Broker
-    // Checks if agent is not null AND if the agent name exists in the broker list
-    const isAssignedToBroker = lead.agent !== null && (validBrokerNames.has(lead.agent) || isDemo);
-
-    return nameMatch && matchesAgentFilter && isAssignedToBroker;
+    // Show leads that are matched by search and agent filter
+    // If agentFilter is 'all', show all leads (including those with Desconhecido agent)
+    return nameMatch && matchesAgentFilter;
   });
 
   const handleWhatsAppClick = async (lead: any) => {
@@ -183,6 +202,11 @@ export default function Pipeline() {
         }
       }
     }
+  };
+
+  const handleCardClick = (lead: any) => {
+    setSelectedLead(lead);
+    setIsDetailModalOpen(true);
   };
 
   if (loading) {
@@ -374,40 +398,55 @@ export default function Pipeline() {
                 {columnLeads.map((lead) => (
                   <div
                     key={lead.id}
+                    onMouseDown={() => startLongPress(lead)}
+                    onMouseUp={cancelLongPress}
+                    onMouseLeave={cancelLongPress}
+                    onTouchStart={() => startLongPress(lead)}
+                    onTouchEnd={cancelLongPress}
                     className={cn(
-                      'bg-card rounded-lg p-2.5 shadow-card border cursor-default transition-all',
-                      'hover:shadow-soft animate-fade-in'
+                      'bg-card rounded-lg p-2.5 shadow-card border cursor-pointer transition-all',
+                      'hover:shadow-soft animate-fade-in group select-none active:scale-[0.98]'
                     )}
+                    title="Segure o clique para ver detalhes e histórico"
                   >
                     <div className="flex items-start justify-between mb-1">
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-xs text-card-foreground truncate uppercase">{lead.name}</h4>
-                        <a
-                          href={`https://wa.me/55${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Oi ${lead.name.split(' ')[0]} tudo joia?`)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={() => handleWhatsAppClick(lead)}
-                          className="flex items-center gap-1 text-[10px] text-primary hover:underline opacity-90"
+                        <div
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            const url = `https://wa.me/55${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Oi ${lead.name.split(' ')[0]} tudo joia?`)}`;
+                            window.open(url, '_blank');
+                            handleWhatsAppClick(lead);
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 text-[10px] text-primary hover:underline opacity-90 relative z-10 cursor-pointer select-none"
+                          title="Clique duplo para abrir WhatsApp"
                         >
                           <Phone className="h-2.5 w-2.5" />
                           {lead.phone}
-                        </a>
+                        </div>
                       </div>
                     </div>
 
-                    {lead.propertyInterest && (
-                      <p className="text-[10px] text-muted-foreground mb-1.5 truncate">
-                        🏠 {lead.propertyInterest}
-                      </p>
-                    )}
+                    {
+                      lead.propertyInterest && (
+                        <p className="text-[10px] text-muted-foreground mb-1 truncate">
+                          🏠 {lead.propertyInterest}
+                        </p>
+                      )
+                    }
 
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-medium">
-                          {lead.agentAvatar}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{lead.agent}</span>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-bold">
+                        {lead.agentAvatar}
                       </div>
+                      <span className="text-[10px] text-muted-foreground font-medium truncate">
+                        👤 {lead.agent}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-end">
                       <StatusBadge status={lead.origin} />
                     </div>
                   </div>
@@ -416,7 +455,13 @@ export default function Pipeline() {
             </div>
           );
         })}
-      </div>
-    </div>
+      </div >
+      <LeadDetailModal
+        lead={selectedLead}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+        onUpdate={fetchData}
+      />
+    </div >
   );
 }
