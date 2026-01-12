@@ -938,6 +938,23 @@ export const dashboardService = {
             logger.error('Erro em createLeadSale:', (error as Error).message);
             return { success: false, error: (error as Error).message };
         }
+    },
+
+    /**
+     * Cria um novo lead no sistema
+     */
+    async createLead(leadData: any) {
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .insert([leadData]);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em createLead:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
     }
 };
 

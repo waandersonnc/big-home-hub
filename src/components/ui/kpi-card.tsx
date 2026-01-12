@@ -36,7 +36,7 @@ export function KPICard({
           <p className="text-sm font-medium text-muted-foreground/70 leading-tight">
             {title}
           </p>
-          <p className="font-semibold text-card-foreground  text-2xl tracking-tight">
+          <p className="font-semibold text-card-foreground text-xl tracking-tight">
             {value}
           </p>
           {trend && (

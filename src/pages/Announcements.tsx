@@ -113,10 +113,9 @@ export default function Announcements() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <KPICard title="Impressões" value={kpis.impressions} icon={Eye} color="primary" />
         <KPICard title="Cliques" value={kpis.clicks} icon={MousePointer} color="primary" />
-        <KPICard title="CTR" value={kpis.ctr} icon={Target} color="success" />
         <KPICard title="Custo por Lead" value={kpis.cpl} icon={DollarSign} color="warning" />
         <KPICard title="Leads Gerados" value={kpis.leads} icon={Users} color="success" />
         <KPICard title="Investimento" value={kpis.investment} icon={TrendingUp} color="purple" />

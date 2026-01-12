@@ -62,6 +62,7 @@ export default function Pipeline() {
 
   const [leads, setLeads] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
+  const [fullTeam, setFullTeam] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [agentFilter, setAgentFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -69,7 +70,87 @@ export default function Pipeline() {
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
   const longPressTimer = useRef<any>(null);
+
+  const [newLead, setNewLead] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    interest: '',
+    source: '',
+    my_broker: '',
+    my_manager: ''
+  });
+
+  const handleCreateLead = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isDemo) {
+      toast({ title: "Modo Demo", description: "Não é possível criar leads no modo de demonstração." });
+      return;
+    }
+
+    if (!user) return;
+
+    setCreating(true);
+    try {
+      // Determinar a hierarquia
+      const finalOwner = user.role === 'owner' ? user.id : (user.role === 'manager' ? leads[0]?.my_owner : user.role === 'broker' ? leads[0]?.my_owner : null);
+      // Tentativa de pegar ids do contexto logado se o lead array estiver vazio
+      const ownerId = user.role === 'owner' ? user.id : (leads.length > 0 ? leads[0].my_owner : (user.role === 'broker' || user.role === 'manager' ? (user as any).real_estate_company_id ? await getOwnerFromCompany(user.real_estate_company_id!) : null : null));
+
+      // Hierarquia solicitada:
+      // Se broker: pega tudo do broker (ele já tem manager_id e company_id no perfil)
+      // Se manager: seleciona broker (manager id e owner id são do manager)
+      // Se owner: seleciona manager e broker
+
+      const leadData = {
+        name: newLead.name,
+        phone: newLead.phone,
+        email: newLead.email || null,
+        interest: newLead.interest || null,
+        source: newLead.source || 'Manual',
+        stage: 'em espera', // Adicionado como "Em Espera"
+        company_id: selectedCompanyId || user.real_estate_company_id,
+        my_owner: user.role === 'owner' ? user.id : (user.role === 'manager' ? await getOwnerFromManager(user.id) : await getOwnerFromBroker(user.id)),
+        my_manager: user.role === 'manager' ? user.id : (user.role === 'broker' ? user.manager_id : newLead.my_manager),
+        my_broker: user.role === 'broker' ? user.id : newLead.my_broker,
+        active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const result = await dashboardService.createLead(leadData);
+
+      if (result.success) {
+        toast({ title: "Lead criado!", description: "O lead foi adicionado ao pipeline." });
+        setIsDialogOpen(false);
+        fetchData();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error: any) {
+      toast({ title: "Erro ao criar lead", description: error.message, variant: "destructive" });
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Funções auxiliares para buscar owner_id se não estiver no user (o hook AuthContext atualizado agora traz esses campos)
+  const getOwnerFromCompany = async (compId: string) => {
+    const { data } = await supabase.from('real_estate_companies').select('owner_id').eq('id', compId).single();
+    return data?.owner_id;
+  };
+
+  const getOwnerFromManager = async (managerId: string) => {
+    const { data } = await supabase.from('managers').select('my_owner').eq('id', managerId).single();
+    return data?.my_owner;
+  };
+
+  const getOwnerFromBroker = async (brokerId: string) => {
+    const { data } = await supabase.from('brokers').select('my_owner').eq('id', brokerId).single();
+    return data?.my_owner;
+  };
 
   const startLongPress = (lead: any) => {
     longPressTimer.current = setTimeout(() => {
@@ -87,6 +168,7 @@ export default function Pipeline() {
     if (!isDemo && !selectedCompanyId) {
       setLeads([]);
       setAgents([]);
+      setFullTeam([]);
       setLoading(false);
       return;
     }
@@ -100,6 +182,8 @@ export default function Pipeline() {
           dashboardService.getAllCompanyLeads(companyId),
           dashboardService.listTeam(companyId)
         ]);
+
+        setFullTeam(team);
 
         const realAgents = team.filter(u => u.user_type === 'broker').map(u => ({
           id: u.id,
@@ -124,7 +208,10 @@ export default function Pipeline() {
             status: STAGE_TO_COLUMN[l.stage] || 'Em Espera',
             informative: l.informative || [],
             closing_data: l.closing_data || {},
-            created_at: l.created_at
+            created_at: l.created_at,
+            my_owner: l.my_owner,
+            my_manager: l.my_manager,
+            my_broker: l.my_broker
           };
         });
 
@@ -133,11 +220,13 @@ export default function Pipeline() {
       } else {
         setLeads([]);
         setAgents([]);
+        setFullTeam([]);
       }
     } catch (error) {
       console.error('Erro ao buscar pipeline:', error);
       setLeads([]);
       setAgents([]);
+      setFullTeam([]);
       toast({ title: "Erro ao carregar dados", description: "Não foi possível carregar o pipeline.", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -277,74 +366,161 @@ export default function Pipeline() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={() => {
+              // Reset form
+              setNewLead({
+                name: '',
+                phone: '',
+                email: '',
+                interest: '',
+                source: '',
+                my_broker: user?.role === 'broker' ? user.id : '',
+                my_manager: user?.role === 'manager' ? user.id : (user?.role === 'broker' ? (user.manager_id || '') : '')
+              });
+            }}>
               <Plus className="h-4 w-4 mr-2" />
               Novo Lead
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>Adicionar Novo Lead</DialogTitle>
             </DialogHeader>
-            <form className="space-y-4 mt-4">
+            <form onSubmit={handleCreateLead} className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome</Label>
-                <Input id="name" placeholder="Nome do lead" />
+                <Label htmlFor="lead-name">Nome *</Label>
+                <Input
+                  id="lead-name"
+                  placeholder="Nome completo do lead"
+                  required
+                  value={newLead.name}
+                  onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Telefone</Label>
-                  <Input id="phone" placeholder="(11) 99999-9999" />
+                  <Label htmlFor="lead-phone">Telefone *</Label>
+                  <Input
+                    id="lead-phone"
+                    placeholder="(11) 99999-9999"
+                    required
+                    value={newLead.phone}
+                    onChange={(e) => {
+                      const masked = e.target.value
+                        .replace(/\D/g, '')
+                        .replace(/^(\d{2})(\d)/g, '($1) $2')
+                        .replace(/(\d{5})(\d)/, '$1-$2')
+                        .substring(0, 15);
+                      setNewLead({ ...newLead, phone: masked });
+                    }}
+                  />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="email@exemplo.com" />
+                  <Label htmlFor="lead-email">Email (Opcional)</Label>
+                  <Input
+                    id="lead-email"
+                    type="email"
+                    placeholder="email@exemplo.com"
+                    value={newLead.email}
+                    onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                  />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="property">Imóvel de Interesse</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Imóvel sob consulta">Imóvel sob consulta</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="lead-interest">Interesse (Opcional)</Label>
+                <Input
+                  id="lead-interest"
+                  placeholder="Ex: Apartamento 3 quartos..."
+                  value={newLead.interest}
+                  onChange={(e) => setNewLead({ ...newLead, interest: e.target.value })}
+                />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="agent">Corretor</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {agents.map((a) => (
-                      <SelectItem key={a.id} value={a.name}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              {/* Hierarchy Logic */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(user?.role === 'owner') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="lead-manager">Gerente</Label>
+                    <Select
+                      value={newLead.my_manager}
+                      onValueChange={(val) => setNewLead({ ...newLead, my_manager: val, my_broker: '' })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o gerente" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fullTeam.filter(m => m.user_type === 'manager').map(m => (
+                          <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {(user?.role === 'owner' || user?.role === 'manager') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="lead-broker">Corretor</Label>
+                    <Select
+                      value={newLead.my_broker}
+                      onValueChange={(val) => setNewLead({ ...newLead, my_broker: val })}
+                      disabled={user?.role === 'owner' && !newLead.my_manager}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o corretor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {fullTeam
+                          .filter(b => b.user_type === 'broker')
+                          // Se for owner, filtra brokers do gerente selecionado
+                          // Se for manager, ele só vê os dele (listTeam já deve retornar filtrado pela API se for manager logado)
+                          .filter(b => !newLead.my_manager || b.my_manager === newLead.my_manager)
+                          .map(b => (
+                            <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>
+                          ))
+                        }
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {user?.role === 'broker' && (
+                  <div className="space-y-2">
+                    <Label>Atribuído a</Label>
+                    <Input value={user.full_name} disabled className="bg-muted/50" />
+                  </div>
+                )}
+
+                <div className="space-y-2 col-span-1">
+                  <Label htmlFor="lead-origin">Origem</Label>
+                  <Select
+                    value={newLead.source}
+                    onValueChange={(val) => setNewLead({ ...newLead, source: val })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione a origem" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                      <SelectItem value="Site">Site</SelectItem>
+                      <SelectItem value="Instagram">Instagram</SelectItem>
+                      <SelectItem value="Facebook">Facebook</SelectItem>
+                      <SelectItem value="Google">Google</SelectItem>
+                      <SelectItem value="Indicação">Indicação</SelectItem>
+                      <SelectItem value="Portais">Portais</SelectItem>
+                      <SelectItem value="Outro">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="origin">Origem</Label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                    <SelectItem value="Site">Site</SelectItem>
-                    <SelectItem value="Indicação">Indicação</SelectItem>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex gap-3 pt-4">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
+
+              <div className="flex gap-3 pt-6 border-t mt-6">
+                <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsDialogOpen(false)}>
                   Cancelar
                 </Button>
-                <Button type="submit" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                  Salvar
+                <Button type="submit" className="flex-1" disabled={creating}>
+                  {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : 'Criar Lead'}
                 </Button>
               </div>
             </form>

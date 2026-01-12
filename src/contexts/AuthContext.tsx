@@ -19,6 +19,9 @@ export interface AuthUser {
     manager_id?: string; // For brokers - their manager
     validoutoken?: boolean; // For owners
     onboarding_completed?: boolean; // For owners
+    avatar_url?: string;
+    document?: string;
+    settings?: any;
 }
 
 interface AuthContextType {
@@ -67,7 +70,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // 1. Check if owner
             const { data: owner, error: ownerError } = await supabase
                 .from('owners')
-                .select('id, email, name, phone, validoutoken')
+                .select('id, email, name, phone, validoutoken, avatar_url, document, settings')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
@@ -83,7 +86,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     phone: owner.phone,
                     role: 'owner',
                     validoutoken: owner.validoutoken,
-                    onboarding_completed: true // Fallback to true since column is missing
+                    onboarding_completed: true,
+                    avatar_url: owner.avatar_url,
+                    document: owner.document,
+                    settings: owner.settings
                 };
             }
 

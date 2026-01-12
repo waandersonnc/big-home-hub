@@ -25,10 +25,10 @@ export function ImageUpload({ onUpload, defaultImage, type, userId, companyId }:
         if (!file) return;
 
         // Validation
-        if (file.size > 2 * 1024 * 1024) {
+        if (file.size > 3 * 1024 * 1024) {
             toast({
                 title: "Arquivo muito grande",
-                description: "O tamanho máximo permitido é 2MB.",
+                description: "O tamanho máximo permitido é 3MB.",
                 variant: "destructive",
             });
             return;

@@ -59,6 +59,18 @@ export function LeadDocumentWizard({ lead, user, onComplete, onCancel }: LeadDoc
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const newFiles = Array.from(e.target.files);
+
+            // Validate size (3MB)
+            const oversized = newFiles.filter(f => f.size > 3 * 1024 * 1024);
+            if (oversized.length > 0) {
+                toast({
+                    title: "Arquivo muito grande",
+                    description: "Alguns arquivos excedem o limite de 3MB.",
+                    variant: "destructive"
+                });
+                return;
+            }
+
             setFiles(prev => [...prev, ...newFiles]);
         }
     };
@@ -279,7 +291,7 @@ export function LeadDocumentWizard({ lead, user, onComplete, onCancel }: LeadDoc
                                 </div>
                                 <div className="space-y-1">
                                     <p className="font-bold">Clique ou arraste os arquivos</p>
-                                    <p className="text-xs text-muted-foreground">PDF, JPEG, PNG (Até 10MB por arquivo)</p>
+                                    <p className="text-xs text-muted-foreground">PDF, JPEG, PNG (Até 3MB por arquivo)</p>
                                 </div>
                             </div>
                         </div>

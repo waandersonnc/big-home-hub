@@ -13,6 +13,7 @@ import {
     LogOut,
     ChevronLeft,
     ChevronRight,
+    Settings as SettingsIcon,
 } from "lucide-react";
 import { useAuthContext } from "@/contexts/AuthContext";
 import { useCompany } from "@/contexts/CompanyContext";
@@ -155,17 +156,28 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
                 {!isCollapsed ? (
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 overflow-hidden">
-                            <Avatar className="h-9 w-9 border">
+                            <Avatar
+                                className="h-9 w-9 border cursor-pointer hover:ring-2 ring-primary transition-all"
+                                onClick={() => navigate('/settings')}
+                            >
+                                {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
                                 <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">
                                     {(user?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                                 </AvatarFallback>
                             </Avatar>
                             <div className="flex flex-col overflow-hidden">
                                 <span className="text-sm font-semibold truncate">{user?.full_name || 'Usuário'}</span>
-                                <button onClick={handleLogout} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors text-left">
-                                    <LogOut size={10} />
-                                    Sair
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => navigate('/settings')} className="text-xs text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors">
+                                        <SettingsIcon size={10} />
+                                        Ajustes
+                                    </button>
+                                    <span className="text-muted-foreground/30">•</span>
+                                    <button onClick={handleLogout} className="text-xs text-muted-foreground hover:text-destructive flex items-center gap-1 transition-colors text-left">
+                                        <LogOut size={10} />
+                                        Sair
+                                    </button>
+                                </div>
                             </div>
                         </div>
                         {toggleCollapse && (
@@ -176,7 +188,11 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
                     </div>
                 ) : (
                     <div className="flex flex-col items-center gap-4">
-                        <Avatar className="h-8 w-8 border">
+                        <Avatar
+                            className="h-8 w-8 border cursor-pointer hover:ring-2 ring-primary transition-all"
+                            onClick={() => navigate('/settings')}
+                        >
+                            {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
                             <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-bold">
                                 {(user?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
                             </AvatarFallback>

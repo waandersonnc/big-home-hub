@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
-import { Menu, X, Bell } from 'lucide-react';
+import { useNavigate, Outlet, useLocation } from 'react-router-dom';
+import { Menu, X, Bell, User } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { RoleBasedMenu } from '@/components/RoleBasedMenu';
@@ -12,8 +13,9 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const navigate = useNavigate();
   const location = useLocation();
-  const { isLoading: authLoading } = useAuthContext();
+  const { user, isLoading: authLoading } = useAuthContext();
   const { isLoading: companyLoading } = useCompany();
   const isDemo = demoStore.isActive;
 
@@ -65,10 +67,21 @@ export function AppShell() {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground italic tracking-tighter">BigHome</span>
           </div>
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" className="relative mr-2">
+              <Bell className="h-5 w-5" />
+              <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
+            </Button>
+            <Avatar
+              className="h-8 w-8 border cursor-pointer ring-offset-2 hover:ring-2 ring-primary transition-all"
+              onClick={() => navigate('/settings')}
+            >
+              {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
+              <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-bold">
+                {(user?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </div>
         </header>
 
         {/* Page content */}
