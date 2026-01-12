@@ -96,15 +96,6 @@ export function LeadDocumentWizard({ lead, user, onComplete, onCancel }: LeadDoc
     };
 
     const handleFinish = async () => {
-        if (files.length === 0) {
-            toast({
-                title: "Upload obrigatório",
-                description: "Por favor, anexe ao menos um documento.",
-                variant: "destructive"
-            });
-            return;
-        }
-
         setLoading(true);
         try {
             const fileUrls = await uploadFiles();
@@ -271,7 +262,7 @@ export function LeadDocumentWizard({ lead, user, onComplete, onCancel }: LeadDoc
             {step === 3 && (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
                     <div className="flex items-center gap-2 text-primary mb-4 font-bold uppercase tracking-wider text-xs">
-                        <Upload className="h-4 w-4" /> Etapa 3: Anexar Documentos
+                        <Upload className="h-4 w-4" /> Etapa 3: Anexar Documentos (Opcional)
                     </div>
                     <div className="space-y-4">
                         <div className="border-2 border-dashed border-muted-foreground/20 rounded-xl p-8 text-center hover:border-primary/50 transition-colors cursor-pointer relative">
@@ -316,7 +307,7 @@ export function LeadDocumentWizard({ lead, user, onComplete, onCancel }: LeadDoc
                         </Button>
                         <Button
                             onClick={handleFinish}
-                            disabled={files.length === 0 || loading}
+                            disabled={loading}
                             className="bg-success hover:bg-success/90 text-white font-bold gap-2 min-w-[120px]"
                         >
                             {loading ? (
