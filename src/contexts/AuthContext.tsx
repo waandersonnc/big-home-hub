@@ -22,6 +22,7 @@ export interface AuthUser {
     avatar_url?: string;
     document?: string;
     settings?: any;
+    my_owner?: string; // For managers and brokers
 }
 
 interface AuthContextType {
@@ -96,7 +97,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // 2. Check if manager
             const { data: manager, error: managerError } = await supabase
                 .from('managers')
-                .select('id, email, name, phone, company_id')
+                .select('id, email, name, phone, company_id, my_owner')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
@@ -111,14 +112,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     full_name: manager.name,
                     phone: manager.phone,
                     role: 'manager',
-                    real_estate_company_id: manager.company_id
+                    real_estate_company_id: manager.company_id,
+                    my_owner: manager.my_owner
                 };
             }
 
             // 3. Check if broker
             const { data: broker, error: brokerError } = await supabase
                 .from('brokers')
-                .select('id, email, name, phone, company_id, my_manager')
+                .select('id, email, name, phone, company_id, my_manager, my_owner')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
@@ -134,7 +136,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     phone: broker.phone,
                     role: 'broker',
                     real_estate_company_id: broker.company_id,
-                    manager_id: broker.my_manager
+                    manager_id: broker.my_manager,
+                    my_owner: broker.my_owner
                 };
             }
 

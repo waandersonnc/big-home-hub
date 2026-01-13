@@ -30,7 +30,7 @@ export default function Announcements() {
   const { selectedCompanyId } = useCompany();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState('30');
+  const [period, setPeriod] = useState<'month' | 'lastMonth'>('month');
 
   const fetchData = async () => {
     if (!selectedCompanyId && !isDemo) {
@@ -43,7 +43,7 @@ export default function Announcements() {
     try {
       const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
       if (companyId) {
-        const data = await campaignService.listCampaigns(companyId);
+        const data = await campaignService.listCampaigns(companyId, period);
         setCampaigns(data || []);
       } else {
         setCampaigns([]);
@@ -104,9 +104,8 @@ export default function Announcements() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">Últimos 7 dias</SelectItem>
-              <SelectItem value="30">Últimos 30 dias</SelectItem>
-              <SelectItem value="90">Últimos 90 dias</SelectItem>
+              <SelectItem value="month">Mês Atual</SelectItem>
+              <SelectItem value="lastMonth">Mês Passado</SelectItem>
             </SelectContent>
           </Select>
         </div>

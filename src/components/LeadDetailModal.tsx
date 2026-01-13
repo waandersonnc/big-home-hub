@@ -29,6 +29,7 @@ import {
     MessageSquare,
     Phone,
     Calendar,
+    Clock,
     CheckCircle2
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -136,7 +137,7 @@ export function LeadDetailModal({ lead, isOpen, onClose, onUpdate }: LeadDetailM
                                     <Phone className="h-3 w-3" /> {lead.phone}
                                 </span>
                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    <Calendar className="h-3 w-3" /> Criado em {format(new Date(lead.created_at || new Date()), 'dd/MM/yyyy')}
+                                    <Clock className="h-3 w-3" /> Último atendimento: {lead.lastInteractionAt ? format(new Date(lead.lastInteractionAt), 'dd/MM HH:mm', { locale: ptBR }) : 'Nenhum'}
                                 </span>
                             </div>
                         </div>

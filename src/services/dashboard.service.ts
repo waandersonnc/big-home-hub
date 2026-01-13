@@ -795,7 +795,9 @@ export const dashboardService = {
                 .update({
                     stage: 'em atendimento',
                     owing_information: true,
-                    informative: newHistory
+                    informative: newHistory,
+                    last_interaction_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
                 })
                 .eq('id', leadId);
 
@@ -846,6 +848,7 @@ export const dashboardService = {
                     stage: stage,
                     owing_information: false,
                     informative: newHistory,
+                    last_interaction_at: new Date().toISOString(),
                     closing_data: closingData || {},
                     document_urls: document_urls || []
                 })
@@ -953,6 +956,107 @@ export const dashboardService = {
             return { success: true };
         } catch (error) {
             logger.error('Erro em createLead:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Atualiza o agendamento de follow-up de um lead
+     */
+    async updateLeadFollowup(leadId: string, followupAt: string, note: string, authorName: string) {
+        try {
+            // Buscar histórico atual
+            const { data: lead } = await supabase
+                .from('leads')
+                .select('informative, followup_scheduled_at')
+                .eq('id', leadId)
+                .single();
+
+            const history = Array.isArray(lead?.informative) ? lead.informative : [];
+            const actionText = `📅 Follow-up ${lead?.followup_scheduled_at ? 'alterado' : 'agendado'} para ${new Date(followupAt).toLocaleString('pt-BR')}${note ? `: "${note}"` : ''}`;
+
+            const newHistory = [
+                ...history,
+                {
+                    text: actionText,
+                    created_at: new Date().toISOString(),
+                    author: authorName,
+                    type: 'system_action'
+                }
+            ];
+
+            const { error } = await supabase
+                .from('leads')
+                .update({
+                    followup_scheduled_at: followupAt,
+                    followup_note: note,
+                    informative: newHistory
+                })
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em updateLeadFollowup:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Remove o agendamento de follow-up de um lead
+     */
+    async removeLeadFollowup(leadId: string, authorName: string) {
+        try {
+            // Buscar histórico atual
+            const { data: lead } = await supabase
+                .from('leads')
+                .select('informative')
+                .eq('id', leadId)
+                .single();
+
+            const history = Array.isArray(lead?.informative) ? lead.informative : [];
+            const newHistory = [
+                ...history,
+                {
+                    text: "❌ Follow-up removido.",
+                    created_at: new Date().toISOString(),
+                    author: authorName,
+                    type: 'system_action'
+                }
+            ];
+
+            const { error } = await supabase
+                .from('leads')
+                .update({
+                    followup_scheduled_at: null,
+                    followup_note: null,
+                    last_interaction_at: new Date().toISOString(),
+                    informative: newHistory
+                })
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em removeLeadFollowup:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Atualiza o timestamp de última interação de um lead
+     */
+    async updateLeadInteraction(leadId: string) {
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .update({ last_interaction_at: new Date().toISOString() })
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em updateLeadInteraction:', (error as Error).message);
             return { success: false, error: (error as Error).message };
         }
     }

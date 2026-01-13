@@ -13,7 +13,7 @@ export interface Campaign {
 }
 
 export const campaignService = {
-    async listCampaigns(companyId: string) {
+    async listCampaigns(companyId: string, period: 'month' | 'lastMonth' = 'month') {
         try {
             const { data, error } = await supabase
                 .from('campaigns')
