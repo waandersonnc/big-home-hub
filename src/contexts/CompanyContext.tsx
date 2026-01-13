@@ -72,14 +72,15 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
             }
             else if (isManager || isBroker) {
                 // Manager/Broker: buscar empresa vinculada
+                const table = isManager ? 'managers' : 'brokers';
                 const { data: userData, error: userError } = await supabase
-                    .from('users')
+                    .from(table)
                     .select('company_id')
                     .eq('id', user.id)
                     .single();
 
                 if (userError || !userData?.company_id) {
-                    logger.error('Erro ao buscar company_id do user:', userError?.message);
+                    logger.error(`Erro ao buscar company_id do ${table}:`, userError?.message);
                 } else {
                     const { data, error } = await supabase
                         .from('real_estate_companies')

@@ -19,6 +19,22 @@ export interface User {
     };
 }
 
+export interface AuthUser {
+    id: string;
+    email: string;
+    full_name?: string;
+    phone?: string;
+    role: UserType;
+    real_estate_company_id?: string;
+    manager_id?: string; // For brokers - their manager
+    validoutoken?: boolean; // For owners
+    onboarding_completed?: boolean; // For owners
+    avatar_url?: string;
+    document?: string;
+    settings?: any;
+    my_owner?: string; // For managers and brokers
+}
+
 export interface OwnerData {
     full_name: string;
     phone: string;
@@ -79,20 +95,15 @@ export interface OnboardingQuantityData {
 export interface CompanyData {
     id?: string;
     name: string;
-    cnpj?: string;
-    company_logo_url?: string;
-    address_zipcode?: string;
-    address_street?: string;
-    address_number?: string;
-    address_complement?: string;
-    address_neighborhood?: string;
-    address_city?: string;
-    address_state?: string;
-    // Campos alternativos para compatibilidade
-    address?: string;
-    city?: string;
-    state?: string;
-    zip_code?: string;
+    document?: string; // Maps from 'cnpj'
+    logo_url?: string; // Maps from 'company_logo_url'
+    zip_code?: string; // Maps from 'address_zipcode'
+    address?: string; // Maps from 'address_street'
+    city?: string; // Maps from 'address_city'
+    state?: string; // Maps from 'address_state'
+    trading_name?: string; // Used for unit name
+    email?: string;
+    phone?: string;
 }
 
 export interface OnboardingCompanyData {

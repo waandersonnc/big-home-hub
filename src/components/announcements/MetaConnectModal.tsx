@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,14 +10,28 @@ import { toast } from 'sonner';
 
 export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
-    const [step, setStep] = useState(1); // 1: Connect, 2: Select Account, 3: Success
+    const [step, setStep] = useState(1); // 1: Connect, 2: Select Account, 3: Success, 4: Disconnect Confirm
     const [loading, setLoading] = useState(false);
     const [adAccounts, setAdAccounts] = useState<any[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [accessToken, setAccessToken] = useState('');
+    const [isDisconnecting, setIsDisconnecting] = useState(false);
 
     const { isLoaded, login, getAdAccounts } = useFacebookSDK();
     const { selectedCompanyId } = useCompany();
+
+    // Check initial status
+    useEffect(() => {
+        const checkStatus = async () => {
+            if (selectedCompanyId && isOpen) {
+                const integration = await metaService.getIntegration(selectedCompanyId);
+                if (integration?.is_active) {
+                    setStep(4); // Go directly to disconnect confirmation if already connected
+                }
+            }
+        };
+        checkStatus();
+    }, [isOpen, selectedCompanyId]);
 
     const handleLogin = async () => {
         setLoading(true);
@@ -72,6 +86,30 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const handleDisconnect = async () => {
+        if (!selectedCompanyId) return;
+
+        setLoading(true);
+        try {
+            await metaService.saveIntegration({
+                company_id: selectedCompanyId,
+                meta_access_token: '',
+                meta_ad_account_id: null,
+                meta_ad_account_name: null,
+                is_active: false
+            } as any); // Type assertion needed because we're clearing required fields
+
+            toast.success('Conta desconectada com sucesso.');
+            setIsOpen(false);
+            window.location.reload();
+        } catch (error) {
+            console.error(error);
+            toast.error('Erro ao desconectar conta');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
@@ -79,9 +117,11 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Conectar Meta Ads</DialogTitle>
+                    <DialogTitle>{step === 4 ? "Desconectar Conta" : "Conectar Meta Ads"}</DialogTitle>
                     <DialogDescription>
-                        Conecte sua conta de anúncios para importar leads e métricas automaticamente.
+                        {step === 4
+                            ? "Gerencie a conexão da sua conta de anúncios."
+                            : "Conecte sua conta de anúncios para importar leads e métricas automaticamente."}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -134,14 +174,40 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                             <p className="font-medium text-lg">Conectado com Sucesso</p>
                         </div>
                     )}
+
+                    {step === 4 && (
+                        <div className="flex flex-col items-center justify-center space-y-4 py-2">
+                            <div className="bg-red-50 p-4 rounded-full mb-2">
+                                <AlertCircle className="h-10 w-10 text-red-500" />
+                            </div>
+                            <p className="text-center font-medium">
+                                Tem certeza que deseja desconectar sua conta?
+                            </p>
+                            <p className="text-center text-sm text-muted-foreground px-4">
+                                Ao desconectar, pararemos de importar seus leads e atualizar as métricas automaticamente.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="gap-2 sm:gap-0">
                     {step === 2 && (
                         <Button onClick={handleSave} disabled={!selectedAccount || loading}>
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Salvar e Sincronizar
                         </Button>
+                    )}
+
+                    {step === 4 && (
+                        <>
+                            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={loading}>
+                                Não, cancelar
+                            </Button>
+                            <Button variant="destructive" onClick={handleDisconnect} disabled={loading}>
+                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Sim, desconectar
+                            </Button>
+                        </>
                     )}
                 </DialogFooter>
             </DialogContent>

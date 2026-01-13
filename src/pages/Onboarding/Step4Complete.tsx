@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import { useToast } from '@/components/ui/use-toast';
 
+import { useAuthContext } from '@/contexts/AuthContext';
+
 interface Step4Props {
     userId: string;
     data: {
@@ -17,6 +19,7 @@ interface Step4Props {
 export default function Step4Complete({ userId, data, onFinish }: Step4Props) {
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
+    const { refreshUser } = useAuthContext();
 
     const handleComplete = async () => {
         setIsLoading(true);
@@ -27,6 +30,10 @@ export default function Step4Complete({ userId, data, onFinish }: Step4Props) {
                 .eq('id', userId);
 
             if (error) throw error;
+
+            // Refresh the user context to ensure all guards see the updated state
+            await refreshUser();
+
             onFinish();
         } catch (error) {
             const err = error as Error;

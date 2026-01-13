@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 import TokenVerificationModal from '@/components/TokenVerificationModal';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface OwnerData {
   id: string;
@@ -20,11 +21,13 @@ interface OwnerData {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuthContext();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Token verification modal state
   const [showVerificationModal, setShowVerificationModal] = useState(false);
@@ -32,19 +35,21 @@ export default function Login() {
 
   const handleDemo = async () => {
     setIsDemoLoading(true);
-    localStorage.removeItem('is_demo');
 
-    // Pequena demora para garantir que o contexto perceba a mudança social
-    // e para mostrar nossa tela de loading premium
+    // Clear any real session if it exists to avoid conflicts
+    localStorage.removeItem('supabase.auth.token');
+
+    // Activate demo mode in the store (notifies subscribers)
+    demoStore.activate();
+
+    // Minimal delay to show the nice loading screen and let context catch up
     setTimeout(() => {
-      demoStore.activate();
       navigate('/painel');
       toast({
         title: "Modo Demonstrativo",
-        description: "Você está acessando uma versão de demonstração.",
+        description: "Você está acessando uma versão de demonstração com dados simulados.",
       });
-      // O isDemoLoading será desmontado quando navegarmos para a nova página
-    }, 1500);
+    }, 1200);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,7 +65,6 @@ export default function Login() {
     }
 
     setIsLoading(true);
-    localStorage.removeItem('is_demo');
     demoStore.deactivate();
 
     try {
@@ -84,7 +88,7 @@ export default function Login() {
       // 2. Check if user is an owner
       const { data: owner, error: ownerError } = await supabase
         .from('owners')
-        .select('id, full_name, phone, email, validoutoken')
+        .select('id, name, phone, email, validoutoken')
         .eq('id', authData.user.id)
         .maybeSingle();
 
@@ -100,7 +104,7 @@ export default function Login() {
           // Show verification modal
           setOwnerData({
             id: owner.id,
-            full_name: owner.full_name || '',
+            full_name: owner.name || '',
             phone: owner.phone || '',
             email: owner.email || email
           });
@@ -115,49 +119,60 @@ export default function Login() {
           title: "Bem-vindo de volta!",
           description: "Login realizado com sucesso.",
         });
+
+        // Refresh context and navigate
+        await refreshUser();
         navigate('/painel');
         return;
       }
 
-      // 4. Check if user is in users table (manager/broker)
-      const { data: staff, error: staffError } = await supabase
-        .from('users')
-        .select('id, user_type, full_name')
+      // 4. Check if user is in managers table
+      const { data: manager, error: managerError } = await supabase
+        .from('managers')
+        .select('id, name')
         .eq('id', authData.user.id)
         .maybeSingle();
 
-      if (staffError) {
-        logger.error('Erro ao buscar staff:', staffError.message);
+      if (managerError) {
+        logger.error('Erro ao buscar gerente:', managerError.message);
       }
 
-      if (staff) {
-        // Validate user_type is manager or broker
-        if (staff.user_type !== 'manager' && staff.user_type !== 'broker') {
-          logger.error('Tipo de usuário inválido:', staff.user_type);
-          toast({
-            title: "Tipo de conta inválido",
-            description: "Seu tipo de conta não é reconhecido. Entre em contato com o suporte.",
-            variant: "destructive"
-          });
-          await supabase.auth.signOut();
-          return;
-        }
-
-        const roleLabel = staff.user_type === 'manager' ? 'Gerente' : 'Corretor';
-
+      if (manager) {
         toast({
-          title: `Bem-vindo, ${staff.full_name || roleLabel}!`,
-          description: `Acesso como ${roleLabel} liberado.`,
+          title: `Bem-vindo, ${manager.name}!`,
+          description: "Acesso como Gerente liberado.",
         });
+        await refreshUser();
+        navigate('/painel');
+        return;
+      }
+
+      // 5. Check if user is in brokers table
+      const { data: broker, error: brokerError } = await supabase
+        .from('brokers')
+        .select('id, name')
+        .eq('id', authData.user.id)
+        .maybeSingle();
+
+      if (brokerError) {
+        logger.error('Erro ao buscar corretor:', brokerError.message);
+      }
+
+      if (broker) {
+        toast({
+          title: `Bem-vindo, ${broker.name}!`,
+          description: "Acesso como Corretor liberado.",
+        });
+        await refreshUser();
         navigate('/painel');
         return;
       }
 
       // User not found in any table - sign out
-      logger.error('Usuário autenticado mas não encontrado nas tabelas owners ou users');
+      logger.error('Usuário autenticado mas não encontrado nas tabelas owners, managers ou brokers');
       toast({
         title: "Conta não encontrada",
-        description: "Não foi possível identificar sua conta. Verifique suas credenciais ou entre em contato com o suporte.",
+        description: "Não foi possível identificar sua conta. Verifique seu cadastro ou entre em contato com o suporte.",
         variant: "destructive"
       });
       await supabase.auth.signOut();
@@ -314,13 +329,25 @@ export default function Login() {
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                       id="password"
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10"
+                      className="pl-10 pr-10"
                       disabled={isLoading}
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
 

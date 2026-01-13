@@ -31,12 +31,18 @@ export default function ResetPassword() {
             const { error } = await supabase.auth.updateUser({ password });
             if (error) throw error;
 
-            // Update needs_password_reset flag in users table
+            // Update needs_password_reset flag in tables
             const { data } = await supabase.auth.getUser();
             const user = data?.user;
             if (user) {
+                // Try managers first, then brokers (managers is more likely for initial reset)
                 await supabase
-                    .from('users')
+                    .from('managers')
+                    .update({ needs_password_reset: false })
+                    .eq('id', user.id);
+
+                await supabase
+                    .from('brokers')
                     .update({ needs_password_reset: false })
                     .eq('id', user.id);
             }

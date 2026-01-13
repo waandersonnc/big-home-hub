@@ -7,13 +7,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Loader2, Building2 } from 'lucide-react';
+import { Loader2, Building2, PlusCircle } from 'lucide-react';
+import { RegisterCompanyModal } from '@/components/RegisterCompanyModal';
+
 
 export const CompanyTab: React.FC = () => {
     const { isDemo } = useAuthContext();
-    const { selectedCompanyId, refreshCompanies } = useCompany();
+    const { selectedCompanyId, refreshCompanies, companies } = useCompany();
     const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true);
+    const [fetching, setFetching] = useState(false);
+    const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
         trading_name: '',
@@ -28,8 +31,11 @@ export const CompanyTab: React.FC = () => {
     useEffect(() => {
         if (selectedCompanyId) {
             loadCompanyData();
+        } else {
+            setFetching(false);
         }
-    }, [selectedCompanyId]);
+    }, [selectedCompanyId, companies.length]);
+
 
     const loadCompanyData = async () => {
         setFetching(true);
@@ -117,6 +123,32 @@ export const CompanyTab: React.FC = () => {
             </div>
         );
     }
+
+    if (!selectedCompanyId) {
+        return (
+            <div className="flex flex-col items-center justify-center h-96 space-y-6 text-center animate-fade-in">
+                <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center text-primary">
+                    <Building2 size={40} />
+                </div>
+                <div className="space-y-2">
+                    <h3 className="text-xl font-bold italic tracking-tight">Nenhuma Imobiliária Ativa</h3>
+                    <p className="text-muted-foreground max-w-sm">
+                        Parece que você ainda não cadastrou nenhuma unidade. Para começar a gerenciar seus leads, cadastre sua primeira imobiliária.
+                    </p>
+                </div>
+                <Button onClick={() => setIsRegisterModalOpen(true)} className="gap-2 h-12 px-8 font-bold text-lg">
+                    <PlusCircle size={20} />
+                    Cadastrar Imob
+                </Button>
+
+                <RegisterCompanyModal
+                    isOpen={isRegisterModalOpen}
+                    onClose={() => setIsRegisterModalOpen(false)}
+                />
+            </div>
+        );
+    }
+
 
     return (
         <div className="space-y-8 max-w-2xl">

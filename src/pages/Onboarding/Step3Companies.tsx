@@ -82,8 +82,16 @@ export default function Step3Companies({ userId, data, onUpdate, onNext, onBack 
                 await supabase.from('real_estate_companies').delete().eq('owner_id', userId);
 
                 const companiesToInsert = companies.map(c => ({
-                    ...c,
-                    owner_id: userId
+                    owner_id: userId,
+                    name: c.name,
+                    trading_name: c.name,
+                    document: c.document || '00.000.000/0000-00', // Default if missing, document is NOT NULL
+                    zip_code: c.zip_code || (c as any).address_zipcode,
+                    address: c.address || `${(c as any).address_street || ''}, ${(c as any).address_number || ''} - ${(c as any).address_neighborhood || ''}`,
+                    city: c.city || (c as any).address_city,
+                    state: c.state || (c as any).address_state,
+                    logo_url: c.logo_url || (c as any).company_logo_url,
+                    active: true
                 }));
 
                 const { error: insertError } = await supabase.from('real_estate_companies').insert(companiesToInsert);
@@ -130,12 +138,21 @@ export default function Step3Companies({ userId, data, onUpdate, onNext, onBack 
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2 md:col-span-2">
+                    <div className="space-y-2">
                         <Label>Nome da Imobiliária</Label>
                         <Input
                             placeholder="Ex: BigHome Imóveis"
                             value={currentCompany.name}
                             onChange={(e) => updateCompany({ name: e.target.value })}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>CNPJ</Label>
+                        <Input
+                            placeholder="00.000.000/0000-00"
+                            value={currentCompany.document}
+                            onChange={(e) => updateCompany({ document: e.target.value })}
                         />
                     </div>
 
