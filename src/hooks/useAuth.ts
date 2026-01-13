@@ -66,33 +66,43 @@ export function useRole() {
                     .eq('id', user.id)
                     .maybeSingle();
 
-                // Se o componente foi desmontado ou user mudou, não atualizar state
                 if (!isMounted || abortController.signal.aborted) return;
-
-                if (ownerError) {
-                    logger.error('Error fetching owner:', ownerError.message);
-                }
 
                 if (owner) {
                     setRole('owner');
                     setLoading(false);
+                    return;
+                }
+
+                // Check managers table
+                const { data: manager, error: managerError } = await supabase
+                    .from('managers')
+                    .select('id, my_owner')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (!isMounted || abortController.signal.aborted) return;
+
+                if (manager) {
+                    setRole('manager');
+                    setLoading(false);
+                    return;
+                }
+
+                // Check brokers table
+                const { data: broker, error: brokerError } = await supabase
+                    .from('brokers')
+                    .select('id, my_owner')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (!isMounted || abortController.signal.aborted) return;
+
+                if (broker) {
+                    setRole('broker');
+                    setLoading(false);
                 } else {
-                    // Check users table for manager/broker
-                    const { data: staff, error: staffError } = await supabase
-                        .from('users')
-                        .select('user_type')
-                        .eq('id', user.id)
-                        .maybeSingle();
-
-                    if (!isMounted || abortController.signal.aborted) return;
-
-                    if (staffError) {
-                        logger.error('Error fetching staff:', staffError.message);
-                    }
-
-                    if (staff) {
-                        setRole(staff.user_type as UserType);
-                    }
+                    setRole(null);
                     setLoading(false);
                 }
             } catch (error) {

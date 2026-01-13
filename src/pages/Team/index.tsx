@@ -28,6 +28,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { UI_TEXT } from '@/lib/constants';
 import type { TeamMemberDisplay } from '@/types';
+import AddMemberModal from './AddMemberModal';
 
 type TabFilter = 'all' | 'Gerente' | 'Corretor';
 
@@ -160,53 +161,20 @@ export default function Team() {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Equipe</h1>
                     <p className="text-muted-foreground">Gerencie os membros da sua equipe</p>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button className="h-10 px-4 shadow-soft gap-2 text-sm">
-                            <Plus size={18} />
-                            {UI_TEXT.BUTTONS.ADD_MEMBER}
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Adicionar Novo Membro</DialogTitle>
-                        </DialogHeader>
-                        <form className="space-y-4 mt-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Nome completo</Label>
-                                <Input id="name" placeholder="Nome do membro" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input id="email" type="email" placeholder="email@exemplo.com" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Telefone</Label>
-                                <Input id="phone" placeholder="(11) 99999-9999" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="role">Cargo</Label>
-                                <Select>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecione o cargo" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Gerente">Gerente</SelectItem>
-                                        <SelectItem value="Corretor">Corretor</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="flex gap-3 pt-4">
-                                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                                    Cancelar
-                                </Button>
-                                <Button type="submit" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                                    Salvar
-                                </Button>
-                            </div>
-                        </form>
-                    </DialogContent>
-                </Dialog>
+                <Button
+                    className="h-10 px-4 shadow-soft gap-2 text-sm"
+                    onClick={() => setIsDialogOpen(true)}
+                >
+                    <Plus size={18} />
+                    {UI_TEXT.BUTTONS.ADD_MEMBER}
+                </Button>
+
+                <AddMemberModal
+                    isOpen={isDialogOpen}
+                    onClose={() => setIsDialogOpen(false)}
+                    onSuccess={fetchData}
+                    managers={members.filter(m => m.user_type === 'manager')}
+                />
             </div>
 
             {/* Filters */}

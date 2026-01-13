@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Eye, MousePointer, Target, DollarSign, Users, TrendingUp, Loader2 } from 'lucide-react';
+import { Eye, MousePointer, Target, DollarSign, Users, TrendingUp, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { campaigns as initialCampaigns, campaignPerformance as initialPerformance } from '@/data/mockData';
@@ -96,10 +97,11 @@ export default function Announcements() {
           <p className="text-muted-foreground">Acompanhe o desempenho das suas campanhas</p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
-            Meta Ads
-          </span>
-          <Select value={period} onValueChange={setPeriod}>
+          <Button variant="outline" size="sm" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary font-bold">
+            <LinkIcon size={16} />
+            Conectar conta
+          </Button>
+          <Select value={period} onValueChange={(val) => setPeriod(val as 'month' | 'lastMonth')}>
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>

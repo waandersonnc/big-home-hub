@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -14,11 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { teamService } from '@/services/team.service';
 import { useCompany } from '@/contexts/CompanyContext';
-import { useAuth } from '@/hooks/useAuth';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { useRole } from '@/hooks/useAuth';
+import { Loader2, AlertCircle, UserPlus, Shield, User } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { logger } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 import type { TeamMemberDisplay } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface AddMemberModalProps {
     isOpen: boolean;
@@ -29,10 +31,11 @@ interface AddMemberModalProps {
 
 export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }: AddMemberModalProps) {
     const { selectedCompanyId } = useCompany();
-    const { user: owner } = useAuth();
+    const { role, user: currentUser } = useRole();
     const { toast } = useToast();
 
     const [isLoading, setIsLoading] = useState(false);
+    const [ownerId, setOwnerId] = useState<string>('');
     const [formData, setFormData] = useState({
         full_name: '',
         email: '',
@@ -41,8 +44,41 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
         manager_id: '',
     });
 
+    // Buscar o owner_id se necessário
+    useEffect(() => {
+        async function fetchOwnerId() {
+            if (!currentUser) return;
+
+            if (role === 'owner') {
+                setOwnerId(currentUser.id);
+            } else if (role === 'manager') {
+                const { data } = await supabase
+                    .from('managers')
+                    .select('my_owner')
+                    .eq('id', currentUser.id)
+                    .maybeSingle();
+
+                if (data?.my_owner) {
+                    setOwnerId(data.my_owner);
+                }
+            }
+        }
+        fetchOwnerId();
+    }, [role, currentUser]);
+
+    // Se o usuário logado for gerente, ele só pode adicionar corretores para ele mesmo
+    useEffect(() => {
+        if (role === 'manager') {
+            setFormData(prev => ({
+                ...prev,
+                user_type: 'broker',
+                manager_id: currentUser?.id || ''
+            }));
+        }
+    }, [role, currentUser]);
+
     const handleCreate = async () => {
-        if (!owner) {
+        if (!currentUser) {
             toast({ title: "Sessão inválida", description: "Por favor faça login novamente.", variant: "destructive" });
             return;
         }
@@ -59,15 +95,21 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
 
         setIsLoading(true);
         try {
+            // Se for owner, o owner_id é o id dele. Se for gerente, precisamos do owner_id da empresa ou do gerente.
+            // No entanto, o service-role na edge function pode tratar isso se passarmos os dados certos.
+            // Para garantir, vamos passar o owner_id. Se o currentUser for Gerente, precisamos descobrir quem é o owner dele.
+            // Mas o teamService.createMember no service pode lidar com isso se a edge function for inteligente.
+            // Vamos assumir que passamos o ID do usuário que está criando e a edge function resolve.
+
             await teamService.createMember({
                 ...formData,
                 company_id: selectedCompanyId!,
-                owner_id: owner.id
+                owner_id: ownerId
             });
 
             toast({
                 title: "Membro adicionado!",
-                description: `Um e-mail foi enviado para ${formData.email} com a senha padrão BIG123456.`
+                description: `O usuário ${formData.full_name} foi criado com a senha @Bighome123.`
             });
             onSuccess();
             onClose();
@@ -86,85 +128,121 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
     };
 
     const noManagers = managers.length === 0;
+    const isOwner = role === 'owner';
+    const isManager = role === 'manager';
+
+    const formatPhone = (val: string) => {
+        const cleaned = val.replace(/\D/g, '');
+        let formatted = cleaned;
+        if (cleaned.length > 0) {
+            formatted = '(' + cleaned.substring(0, 2);
+            if (cleaned.length > 2) {
+                formatted += ') ' + cleaned.substring(2, 7);
+                if (cleaned.length > 7) {
+                    formatted += '-' + cleaned.substring(7, 11);
+                }
+            }
+        }
+        return formatted.substring(0, 15);
+    };
+
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatPhone(e.target.value);
+        setFormData(prev => ({ ...prev, phone: formatted }));
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-2xl border-none shadow-elevated">
-                <DialogHeader className="p-8 bg-muted/20 border-b">
-                    <DialogTitle className="text-2xl font-bold">Adicionar Membro à Equipe</DialogTitle>
-                    <DialogDescription>
-                        Cadastre um novo gerente ou corretor para sua imobiliária.
+            <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden rounded-2xl border-none shadow-elevated bg-card">
+                <DialogHeader className="p-5 bg-primary/5 border-b border-primary/10 relative">
+                    <div className="absolute top-5 right-5 h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                        <UserPlus size={18} />
+                    </div>
+                    <DialogTitle className="text-xl font-bold text-foreground">Novo Membro</DialogTitle>
+                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                        {isOwner
+                            ? "Cadastre um novo gerente ou corretor."
+                            : "Cadastre um novo corretor para sua equipe."}
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="p-8 space-y-6">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <Label>Tipo de Membro</Label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <Button
-                                    type="button"
-                                    variant={formData.user_type === 'manager' ? 'default' : 'outline'}
-                                    className="h-12 text-sm font-semibold"
-                                    onClick={() => setFormData(prev => ({ ...prev, user_type: 'manager', manager_id: '' }))}
-                                >
-                                    Gerente
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={formData.user_type === 'broker' ? 'default' : 'outline'}
-                                    className="h-12 text-sm font-semibold"
-                                    onClick={() => setFormData(prev => ({ ...prev, user_type: 'broker' }))}
-                                >
-                                    Corretor
-                                </Button>
+                <div className="p-5 space-y-4">
+                    <div className="space-y-3">
+                        {isOwner && (
+                            <div className="space-y-2">
+                                <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Cargo / Função</Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, user_type: 'manager', manager_id: '' }))}
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 p-2.5 rounded-xl border transition-all duration-200",
+                                            formData.user_type === 'manager'
+                                                ? "border-primary bg-primary/5 text-primary shadow-sm"
+                                                : "border-muted bg-muted/20 text-muted-foreground hover:bg-muted/30"
+                                        )}
+                                    >
+                                        <Shield size={14} />
+                                        <span className="text-sm font-bold">Gerente</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, user_type: 'broker' }))}
+                                        className={cn(
+                                            "flex items-center justify-center gap-2 p-2.5 rounded-xl border transition-all duration-200",
+                                            formData.user_type === 'broker'
+                                                ? "border-primary bg-primary/5 text-primary shadow-sm"
+                                                : "border-muted bg-muted/20 text-muted-foreground hover:bg-muted/30"
+                                        )}
+                                    >
+                                        <User size={14} />
+                                        <span className="text-sm font-bold">Corretor</span>
+                                    </button>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nome Completo</Label>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="full_name" className="text-xs font-bold">Nome Completo</Label>
                             <Input
-                                id="name"
-                                placeholder="Ex: Pedro Alvares"
-                                className="h-12"
+                                id="full_name"
+                                placeholder="Nome do membro"
+                                className="h-10 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-sm"
                                 value={formData.full_name}
                                 onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
                             />
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="email">E-mail</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="pedro@email.com"
-                                    className="h-12"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Telefone</Label>
-                                <Input
-                                    id="phone"
-                                    placeholder="(11) 99999-9999"
-                                    className="h-12"
-                                    value={formData.phone}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                                />
-                            </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="email" className="text-xs font-bold">E-mail Profissional</Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                placeholder="exemplo@email.com"
+                                className="h-10 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-sm"
+                                value={formData.email}
+                                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                            />
                         </div>
 
-                        {formData.user_type === 'broker' && (
-                            <div className="space-y-2 animate-slide-in-left">
-                                <Label>Gerente Responsável</Label>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="phone" className="text-xs font-bold">WhatsApp / Telefone</Label>
+                            <Input
+                                id="phone"
+                                placeholder="(00) 00000-0000"
+                                className="h-10 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-sm"
+                                value={formData.phone}
+                                onChange={handlePhoneChange}
+                            />
+                        </div>
+
+                        {formData.user_type === 'broker' && isOwner && (
+                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                                <Label className="text-xs font-bold">Gerente Responsável</Label>
                                 {noManagers ? (
-                                    <Alert variant="destructive" className="bg-destructive/5 text-destructive border-destructive/20">
-                                        <AlertCircle className="h-4 w-4" />
-                                        <AlertTitle className="font-bold">Atenção</AlertTitle>
-                                        <AlertDescription className="text-xs">
-                                            Você precisa cadastrar pelo menos um GERENTE antes de adicionar corretores.
+                                    <Alert variant="destructive" className="py-2 bg-destructive/5 text-destructive border-destructive/20 rounded-lg">
+                                        <AlertDescription className="text-[10px] font-semibold">
+                                            Não há gerentes cadastrados.
                                         </AlertDescription>
                                     </Alert>
                                 ) : (
@@ -172,12 +250,12 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
                                         value={formData.manager_id}
                                         onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}
                                     >
-                                        <SelectTrigger className="h-12">
+                                        <SelectTrigger className="h-10 bg-muted/20 border-muted-foreground/10 rounded-lg text-sm">
                                             <SelectValue placeholder="Selecione o gerente..." />
                                         </SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent className="rounded-lg shadow-elevated border-muted-foreground/10">
                                             {managers.map(m => (
-                                                <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                                                <SelectItem key={m.id} value={m.id} className="text-xs">{m.full_name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -186,28 +264,25 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
                         )}
                     </div>
 
-                    <div className="bg-primary/5 p-4 rounded-xl flex items-start gap-4 border border-primary/10">
-                        <div className="h-8 w-8 bg-primary/10 rounded flex items-center justify-center text-primary shrink-0">
-                            <AlertCircle size={18} />
-                        </div>
+                    <div className="bg-primary/5 p-3 rounded-xl flex items-start gap-3 border border-primary/10">
+                        <AlertCircle size={14} className="text-primary mt-0.5 shrink-0" />
                         <div>
-                            <p className="text-xs font-bold text-primary uppercase tracking-wider mb-1">Acesso Temporário</p>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                A senha padrão para o primeiro acesso será <span className="font-bold text-foreground">BIG123456</span>.
-                                O usuário será obrigado a alterá-la no primeiro login.
+                            <p className="text-[11px] font-bold text-primary uppercase tracking-wider">Acesso Temporário</p>
+                            <p className="text-[11px] text-muted-foreground leading-tight">
+                                Senha: <span className="font-bold text-primary">@Bighome123</span>.
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter className="p-8 bg-muted/10 border-t flex gap-4">
-                    <Button variant="ghost" className="h-12 px-6" onClick={onClose}>Cancelar</Button>
+                <DialogFooter className="p-5 bg-muted/10 border-t border-muted/20 flex flex-row gap-3">
+                    <Button variant="ghost" className="h-10 flex-1 rounded-lg font-bold text-xs" onClick={onClose}>Cancelar</Button>
                     <Button
-                        className="flex-1 h-12 text-lg font-bold"
+                        className="h-10 flex-[2] text-xs font-bold rounded-lg shadow-soft"
                         onClick={handleCreate}
-                        disabled={isLoading || (formData.user_type === 'broker' && noManagers)}
+                        disabled={isLoading || (formData.user_type === 'broker' && isOwner && noManagers)}
                     >
-                        {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : 'Criar Usuário'}
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Criar Membro'}
                     </Button>
                 </DialogFooter>
             </DialogContent>
