@@ -100,8 +100,6 @@ export default function Dashboard() {
   const { selectedCompanyId, selectedCompany } = useCompany();
 
   // Check demo from both sources
-  const isDemo = authIsDemo || (typeof window !== 'undefined' && sessionStorage.getItem('bighome_demo_active') === 'true');
-
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLeads, setRecentLeads] = useState<DisplayLead[]>([]);
   const [topAgents, setTopAgents] = useState<DisplayAgent[]>([]);
@@ -109,6 +107,9 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [distributions, setDistributions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Check demo state from AuthContext
+  const isDemo = authIsDemo;
 
   // Fetch real data when company is selected
   useEffect(() => {
@@ -235,12 +236,19 @@ export default function Dashboard() {
     fetchData();
   }, [selectedCompanyId, isDemo, selectedCompany, periodFilter]);
 
-  // Memoize chart data
+  // Memoize chart data with safer fallback
   const displayChartData = useMemo(() => {
+    // If we have real chart data, use it (even if empty, it will show as 0s)
+    if (chartData && chartData.length > 0) {
+      return chartData;
+    }
+
+    // If in demo mode and no real data loaded, show demo mock data
     if (isDemo && !selectedCompanyId) {
       return generateDemoChartData(periodFilter);
     }
-    return chartData;
+
+    return [];
   }, [isDemo, periodFilter, chartData, selectedCompanyId]);
 
   const kpiData = {
@@ -336,12 +344,12 @@ export default function Dashboard() {
       </div>
 
       {/* Liquid Glass Wave Chart - Enhanced */}
-      <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/20 -mx-4 lg:mx-0 rounded-none lg:rounded-[2.5rem] overflow-hidden relative h-[300px] flex flex-col mb-8 group/funnel animate-fade-in" style={{ animationDelay: '0.1s' }}>
+      <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/20 -mx-4 lg:mx-0 rounded-none lg:rounded-[2.5rem] overflow-hidden relative h-[400px] flex flex-col mt-8 pt-8 mb-8 group/funnel animate-fade-in" style={{ animationDelay: '0.1s' }}>
         {/* Simplified Atmospheric Glow */}
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/10 blur-[100px] rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-80 h-80 bg-purple-500/10 blur-[100px] rounded-full translate-y-1/2 -translate-x-1/4 pointer-events-none" />
 
-        <div className="flex items-center justify-between mb-4 relative z-10 px-8">
+        <div className="flex items-center justify-between mb-8 relative z-10 px-8">
           <div>
             <h2 className="text-xl font-bold text-card-foreground/90 tracking-tight">Fluxo de Conversão</h2>
             <p className="text-xs text-muted-foreground/70 mt-1">Jornada do lead até a venda</p>
@@ -355,7 +363,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="flex-1 w-full relative z-10 px-6 py-4">
+        <div className="flex-1 w-full relative z-10 px-6 py-4 h-[300px]">
           <HorizontalFunnel data={displayChartData} />
         </div>
 

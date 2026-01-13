@@ -128,6 +128,7 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
     };
 
     const noManagers = managers.length === 0;
+    const noCompany = !selectedCompanyId;
     const isOwner = role === 'owner';
     const isManager = role === 'manager';
 
@@ -153,50 +154,61 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[420px] p-0 overflow-hidden rounded-2xl border-none shadow-elevated bg-card">
-                <DialogHeader className="p-5 bg-primary/5 border-b border-primary/10 relative">
-                    <div className="absolute top-5 right-5 h-8 w-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                        <UserPlus size={18} />
+            <DialogContent className="sm:max-w-[380px] p-0 overflow-hidden rounded-2xl border-none shadow-elevated bg-card">
+                <DialogHeader className="p-4 bg-primary/5 border-b border-primary/10 relative">
+                    <div className="absolute top-4 right-4 h-7 w-7 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                        <UserPlus size={16} />
                     </div>
-                    <DialogTitle className="text-xl font-bold text-foreground">Novo Membro</DialogTitle>
-                    <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                    <DialogTitle className="text-lg font-bold text-foreground">Novo Membro</DialogTitle>
+                    <DialogDescription className="text-[10px] text-muted-foreground mt-0.5">
                         {isOwner
-                            ? "Cadastre um novo gerente ou corretor."
+                            ? "Cadastre um novo gerente ou corretor para sua imobiliária."
                             : "Cadastre um novo corretor para sua equipe."}
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="p-5 space-y-4">
+                <div className="p-4 space-y-3.5">
+                    {/* Alerta de Imobi não selecionada - bloqueio total */}
+                    {noCompany && (
+                        <Alert variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 rounded-xl mb-3 py-2 px-3">
+                            <AlertCircle className="h-3.5 w-3.5" />
+                            <AlertTitle className="text-[11px] font-bold">Imobiliária Necessária</AlertTitle>
+                            <AlertDescription className="text-[10px] leading-tight opacity-90">
+                                Selecione uma imobiliária antes de adicionar membros.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
                     <div className="space-y-3">
                         {isOwner && (
-                            <div className="space-y-2">
-                                <Label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/70">Cargo / Função</Label>
+                            <div className="space-y-1.5">
+                                <Label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60">Cargo / Função</Label>
                                 <div className="grid grid-cols-2 gap-2">
                                     <button
                                         type="button"
                                         onClick={() => setFormData(prev => ({ ...prev, user_type: 'manager', manager_id: '' }))}
                                         className={cn(
-                                            "flex items-center justify-center gap-2 p-2.5 rounded-xl border transition-all duration-200",
+                                            "flex items-center justify-center gap-2 p-2 rounded-xl border transition-all duration-200",
                                             formData.user_type === 'manager'
                                                 ? "border-primary bg-primary/5 text-primary shadow-sm"
                                                 : "border-muted bg-muted/20 text-muted-foreground hover:bg-muted/30"
                                         )}
                                     >
-                                        <Shield size={14} />
-                                        <span className="text-sm font-bold">Gerente</span>
+                                        <Shield size={12} />
+                                        <span className="text-[13px] font-bold">Gerente</span>
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setFormData(prev => ({ ...prev, user_type: 'broker' }))}
                                         className={cn(
-                                            "flex items-center justify-center gap-2 p-2.5 rounded-xl border transition-all duration-200",
+                                            "flex items-center justify-center gap-2 p-2 rounded-xl border transition-all duration-200",
                                             formData.user_type === 'broker'
                                                 ? "border-primary bg-primary/5 text-primary shadow-sm"
                                                 : "border-muted bg-muted/20 text-muted-foreground hover:bg-muted/30"
                                         )}
                                     >
-                                        <User size={14} />
-                                        <span className="text-sm font-bold">Corretor</span>
+                                        <User size={12} />
+                                        <span className="text-[13px] font-bold">Corretor</span>
                                     </button>
                                 </div>
                             </div>
@@ -207,41 +219,41 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
                             <Input
                                 id="full_name"
                                 placeholder="Nome do membro"
-                                className="h-10 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-sm"
+                                className="h-8 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-xs"
                                 value={formData.full_name}
                                 onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
                             />
                         </div>
 
-                        <div className="space-y-1.5">
-                            <Label htmlFor="email" className="text-xs font-bold">E-mail Profissional</Label>
+                        <div className="space-y-1">
+                            <Label htmlFor="email" className="text-[11px] font-bold">E-mail Profissional</Label>
                             <Input
                                 id="email"
                                 type="email"
                                 placeholder="exemplo@email.com"
-                                className="h-10 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-sm"
+                                className="h-8 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-xs"
                                 value={formData.email}
                                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                             />
                         </div>
 
-                        <div className="space-y-1.5">
-                            <Label htmlFor="phone" className="text-xs font-bold">WhatsApp / Telefone</Label>
+                        <div className="space-y-1">
+                            <Label htmlFor="phone" className="text-[11px] font-bold">WhatsApp / Telefone</Label>
                             <Input
                                 id="phone"
                                 placeholder="(00) 00000-0000"
-                                className="h-10 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-sm"
+                                className="h-8 bg-muted/20 border-muted-foreground/10 focus:border-primary transition-all rounded-lg text-xs"
                                 value={formData.phone}
                                 onChange={handlePhoneChange}
                             />
                         </div>
 
                         {formData.user_type === 'broker' && isOwner && (
-                            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-1">
-                                <Label className="text-xs font-bold">Gerente Responsável</Label>
+                            <div className="space-y-1 animate-in fade-in slide-in-from-top-1">
+                                <Label className="text-[11px] font-bold">Gerente Responsável</Label>
                                 {noManagers ? (
-                                    <Alert variant="destructive" className="py-2 bg-destructive/5 text-destructive border-destructive/20 rounded-lg">
-                                        <AlertDescription className="text-[10px] font-semibold">
+                                    <Alert variant="destructive" className="py-1.5 bg-destructive/5 text-destructive border-destructive/20 rounded-lg">
+                                        <AlertDescription className="text-[9px] font-bold">
                                             Não há gerentes cadastrados.
                                         </AlertDescription>
                                     </Alert>
@@ -250,12 +262,12 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
                                         value={formData.manager_id}
                                         onValueChange={(val) => setFormData(prev => ({ ...prev, manager_id: val }))}
                                     >
-                                        <SelectTrigger className="h-10 bg-muted/20 border-muted-foreground/10 rounded-lg text-sm">
+                                        <SelectTrigger className="h-8 bg-muted/20 border-muted-foreground/10 rounded-lg text-[11px]">
                                             <SelectValue placeholder="Selecione o gerente..." />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-lg shadow-elevated border-muted-foreground/10">
                                             {managers.map(m => (
-                                                <SelectItem key={m.id} value={m.id} className="text-xs">{m.full_name}</SelectItem>
+                                                <SelectItem key={m.id} value={m.id} className="text-[11px]">{m.full_name}</SelectItem>
                                             ))}
                                         </SelectContent>
                                     </Select>
@@ -264,25 +276,25 @@ export default function AddMemberModal({ isOpen, onClose, onSuccess, managers }:
                         )}
                     </div>
 
-                    <div className="bg-primary/5 p-3 rounded-xl flex items-start gap-3 border border-primary/10">
-                        <AlertCircle size={14} className="text-primary mt-0.5 shrink-0" />
+                    <div className="bg-primary/5 p-2 rounded-xl flex items-start gap-2 border border-primary/10">
+                        <AlertCircle size={12} className="text-primary mt-0.5 shrink-0" />
                         <div>
-                            <p className="text-[11px] font-bold text-primary uppercase tracking-wider">Acesso Temporário</p>
-                            <p className="text-[11px] text-muted-foreground leading-tight">
-                                Senha: <span className="font-bold text-primary">@Bighome123</span>.
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-wider">Acesso Temporário</p>
+                            <p className="text-[10px] text-muted-foreground leading-tight">
+                                Senha padrão: <span className="font-bold text-primary">@Bighome123</span>
                             </p>
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter className="p-5 bg-muted/10 border-t border-muted/20 flex flex-row gap-3">
-                    <Button variant="ghost" className="h-10 flex-1 rounded-lg font-bold text-xs" onClick={onClose}>Cancelar</Button>
+                <DialogFooter className="p-4 bg-muted/10 border-t border-muted/20 flex flex-row gap-2">
+                    <Button variant="ghost" className="h-8 flex-1 rounded-lg font-bold text-[11px]" onClick={onClose}>Cancelar</Button>
                     <Button
-                        className="h-10 flex-[2] text-xs font-bold rounded-lg shadow-soft"
+                        className="h-8 flex-[2] text-[11px] font-bold rounded-lg shadow-soft"
                         onClick={handleCreate}
-                        disabled={isLoading || (formData.user_type === 'broker' && isOwner && noManagers)}
+                        disabled={isLoading || noCompany || (formData.user_type === 'broker' && isOwner && noManagers)}
                     >
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Criar Membro'}
+                        {isLoading ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : 'Criar Membro'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

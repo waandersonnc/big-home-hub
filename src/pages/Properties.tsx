@@ -25,6 +25,13 @@ import { cn } from '@/lib/utils';
 import { demoStore } from '@/lib/demoStore';
 import { useCompany } from '@/contexts/CompanyContext';
 import { propertyService } from '@/services/property.service';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { AlertCircle } from 'lucide-react';
 
 type TypeFilter = 'all' | MockProperty['type'];
 type StatusFilter = 'all' | MockProperty['status'] | 'available' | 'reserved' | 'sold' | 'rented';
@@ -103,104 +110,120 @@ export default function Properties() {
           <h1 className="text-2xl font-bold text-foreground">Catálogo de Imóveis</h1>
           <p className="text-muted-foreground">Gerencie seu portfólio de imóveis</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Cadastrar Imóvel
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Cadastrar Novo Imóvel</DialogTitle>
-            </DialogHeader>
-            <Tabs defaultValue="info" className="mt-4">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="info">Informações</TabsTrigger>
-                <TabsTrigger value="features">Características</TabsTrigger>
-                <TabsTrigger value="media">Mídia</TabsTrigger>
-              </TabsList>
-              <TabsContent value="info" className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Título</Label>
-                  <Input id="title" placeholder="Ex: Apartamento Garden" />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="type">Tipo</Label>
-                    <Select>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Casa">Casa</SelectItem>
-                        <SelectItem value="Apartamento">Apartamento</SelectItem>
-                        <SelectItem value="Terreno">Terreno</SelectItem>
-                        <SelectItem value="Cobertura">Cobertura</SelectItem>
-                        <SelectItem value="Studio">Studio</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="price">Preço</Label>
-                    <Input id="price" placeholder="R$ 0,00" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="address">Endereço</Label>
-                  <Input id="address" placeholder="Rua, número - Bairro" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Descrição</Label>
-                  <Textarea id="description" placeholder="Descreva o imóvel..." rows={4} />
-                </div>
-              </TabsContent>
-              <TabsContent value="features" className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="bedrooms">Quartos</Label>
-                    <Input id="bedrooms" type="number" placeholder="0" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="bathrooms">Banheiros</Label>
-                    <Input id="bathrooms" type="number" placeholder="0" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="parking">Vagas</Label>
-                    <Input id="parking" type="number" placeholder="0" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="area">Área (m²)</Label>
-                    <Input id="area" type="number" placeholder="0" />
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="media" className="space-y-4 mt-4">
-                <div className="border-2 border-dashed rounded-lg p-8 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                      <Home className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Arraste imagens aqui ou clique para selecionar
-                    </p>
-                    <Button variant="outline" size="sm">
-                      Selecionar Arquivos
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <TooltipTrigger asChild>
+                <span>
+                  <DialogTrigger asChild>
+                    <Button disabled={!selectedCompanyId}>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Cadastrar Imóvel
                     </Button>
+                  </DialogTrigger>
+                </span>
+              </TooltipTrigger>
+              {!selectedCompanyId && (
+                <TooltipContent className="bg-destructive text-destructive-foreground border-none">
+                  <div className="flex items-center gap-2 py-1">
+                    <AlertCircle size={14} />
+                    <p className="text-xs font-bold">Selecione uma imobiliária antes de cadastrar imóveis</p>
                   </div>
+                </TooltipContent>
+              )}
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Cadastrar Novo Imóvel</DialogTitle>
+                </DialogHeader>
+                <Tabs defaultValue="info" className="mt-4">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="info">Informações</TabsTrigger>
+                    <TabsTrigger value="features">Características</TabsTrigger>
+                    <TabsTrigger value="media">Mídia</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="info" className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="title">Título</Label>
+                      <Input id="title" placeholder="Ex: Apartamento Garden" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="type">Tipo</Label>
+                        <Select>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Casa">Casa</SelectItem>
+                            <SelectItem value="Apartamento">Apartamento</SelectItem>
+                            <SelectItem value="Terreno">Terreno</SelectItem>
+                            <SelectItem value="Cobertura">Cobertura</SelectItem>
+                            <SelectItem value="Studio">Studio</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="price">Preço</Label>
+                        <Input id="price" placeholder="R$ 0,00" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="address">Endereço</Label>
+                      <Input id="address" placeholder="Rua, número - Bairro" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Descrição</Label>
+                      <Textarea id="description" placeholder="Descreva o imóvel..." rows={4} />
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="features" className="space-y-4 mt-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="bedrooms">Quartos</Label>
+                        <Input id="bedrooms" type="number" placeholder="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="bathrooms">Banheiros</Label>
+                        <Input id="bathrooms" type="number" placeholder="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="parking">Vagas</Label>
+                        <Input id="parking" type="number" placeholder="0" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="area">Área (m²)</Label>
+                        <Input id="area" type="number" placeholder="0" />
+                      </div>
+                    </div>
+                  </TabsContent>
+                  <TabsContent value="media" className="space-y-4 mt-4">
+                    <div className="border-2 border-dashed rounded-lg p-8 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                          <Home className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Arraste imagens aqui ou clique para selecionar
+                        </p>
+                        <Button variant="outline" size="sm">
+                          Selecionar Arquivos
+                        </Button>
+                      </div>
+                    </div>
+                  </TabsContent>
+                </Tabs>
+                <div className="flex gap-3 pt-4 mt-4 border-t">
+                  <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button className="flex-1" onClick={() => setIsDialogOpen(false)}>
+                    Salvar
+                  </Button>
                 </div>
-              </TabsContent>
-            </Tabs>
-            <div className="flex gap-3 pt-4 mt-4 border-t">
-              <Button variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                Salvar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+              </DialogContent>
+            </Dialog>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {/* Filters */}
@@ -315,6 +338,6 @@ export default function Properties() {
           )}
         </div>
       )}
-    </div>
+    </div >
   );
 }

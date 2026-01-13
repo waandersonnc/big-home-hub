@@ -59,17 +59,9 @@ const CustomTooltip: React.FC<TooltipProps<number, string>> = ({ active, payload
 };
 
 export const HorizontalFunnel: React.FC<HorizontalFunnelProps> = ({ data, className }) => {
-    // Fallback data if none provided
+    // Simplified data handling
     const chartData = useMemo(() => {
-        if (data && data.length > 0) return data;
-
-        // Generate minimal fallback
-        return [
-            { date: 'Sem. 1', leads: 200, docs: 25, sales: 8 },
-            { date: 'Sem. 2', leads: 180, docs: 28, sales: 10 },
-            { date: 'Sem. 3', leads: 220, docs: 30, sales: 11 },
-            { date: 'Sem. 4', leads: 247, docs: 32, sales: 12 },
-        ];
+        return data || [];
     }, [data]);
 
     return (
