@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { demoStore } from '@/lib/demoStore';
 import { logger } from '@/lib/logger';
@@ -114,9 +114,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
     };
 
+    const isRefreshingRef = useRef(false);
+
     const refreshUser = async () => {
+        if (isRefreshingRef.current) return;
+        isRefreshingRef.current = true;
+
         setIsLoading(true);
         try {
+            logger.debug('AuthContext: refreshUser starting');
             const { data: { user: authUser } } = await supabase.auth.getUser();
             if (authUser) {
                 const userData = await fetchUserData(authUser);
@@ -130,6 +136,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
             logger.error('AuthContext: Error refreshing user:', err);
         } finally {
             setIsLoading(false);
+            isRefreshingRef.current = false;
+            logger.debug('AuthContext: refreshUser finished');
         }
     };
 

@@ -37,6 +37,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { LeadDetailModal } from '@/components/LeadDetailModal';
 import { PipelineLeadCard } from '@/components/Leads/PipelineLeadCard';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { AlertCircle } from 'lucide-react';
 
 type PipelineColumn = 'Em Espera' | 'Em Atendimento' | 'Documentação' | 'Vendido' | 'Removido';
 
@@ -417,175 +424,209 @@ export default function Pipeline() {
           <p className="text-muted-foreground">Acompanhe o progresso dos seus leads</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setDownloadConfig({ isOpen: true, type: 'all' })}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Todos os Leads
-          </Button>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => {
-                // Reset form
-                setNewLead({
-                  name: '',
-                  phone: '',
-                  email: '',
-                  interest: '',
-                  source: '',
-                  my_broker: user?.role === 'broker' ? user.id : '',
-                  my_manager: user?.role === 'manager' ? user.id : (user?.role === 'broker' ? (user.manager_id || '') : '')
-                });
-              }}>
-                <Plus className="h-4 w-4 mr-2" />
-                Novo Lead
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
-                <DialogTitle>Adicionar Novo Lead</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleCreateLead} className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="lead-name">Nome *</Label>
-                  <Input
-                    id="lead-name"
-                    placeholder="Nome completo do lead"
-                    required
-                    value={newLead.name}
-                    onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="lead-phone">Telefone *</Label>
-                    <Input
-                      id="lead-phone"
-                      placeholder="(11) 99999-9999"
-                      required
-                      value={newLead.phone}
-                      onChange={(e) => {
-                        const masked = e.target.value
-                          .replace(/\D/g, '')
-                          .replace(/^(\d{2})(\d)/g, '($1) $2')
-                          .replace(/(\d{5})(\d)/, '$1-$2')
-                          .substring(0, 15);
-                        setNewLead({ ...newLead, phone: masked });
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="lead-email">Email (Opcional)</Label>
-                    <Input
-                      id="lead-email"
-                      type="email"
-                      placeholder="email@exemplo.com"
-                      value={newLead.email}
-                      onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="lead-interest">Interesse (Opcional)</Label>
-                  <Input
-                    id="lead-interest"
-                    placeholder="Ex: Apartamento 3 quartos..."
-                    value={newLead.interest}
-                    onChange={(e) => setNewLead({ ...newLead, interest: e.target.value })}
-                  />
-                </div>
-
-                {/* Hierarchy Logic */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {(user?.role === 'owner') && (
-                    <div className="space-y-2">
-                      <Label htmlFor="lead-manager">Gerente</Label>
-                      <Select
-                        value={newLead.my_manager}
-                        onValueChange={(val) => setNewLead({ ...newLead, my_manager: val, my_broker: '' })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o gerente" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fullTeam.filter(m => m.user_type === 'manager').map(m => (
-                            <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {(user?.role === 'owner' || user?.role === 'manager') && (
-                    <div className="space-y-2">
-                      <Label htmlFor="lead-broker">Corretor</Label>
-                      <Select
-                        value={newLead.my_broker}
-                        onValueChange={(val) => setNewLead({ ...newLead, my_broker: val })}
-                        disabled={user?.role === 'owner' && !newLead.my_manager}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o corretor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {fullTeam
-                            .filter(b => b.user_type === 'broker')
-                            // Se for owner, filtra brokers do gerente selecionado
-                            // Se for manager, ele só vê os dele (listTeam já deve retornar filtrado pela API se for manager logado)
-                            .filter(b => !newLead.my_manager || b.my_manager === newLead.my_manager)
-                            .map(b => (
-                              <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>
-                            ))
-                          }
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
-                  {user?.role === 'broker' && (
-                    <div className="space-y-2">
-                      <Label>Atribuído a</Label>
-                      <Input value={user.full_name} disabled className="bg-muted/50" />
-                    </div>
-                  )}
-
-                  <div className="space-y-2 col-span-1">
-                    <Label htmlFor="lead-origin">Origem</Label>
-                    <Select
-                      value={newLead.source}
-                      onValueChange={(val) => setNewLead({ ...newLead, source: val })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a origem" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="WhatsApp">WhatsApp</SelectItem>
-                        <SelectItem value="Site">Site</SelectItem>
-                        <SelectItem value="Instagram">Instagram</SelectItem>
-                        <SelectItem value="Facebook">Facebook</SelectItem>
-                        <SelectItem value="Google">Google</SelectItem>
-                        <SelectItem value="Indicação">Indicação</SelectItem>
-                        <SelectItem value="Portais">Portais</SelectItem>
-                        <SelectItem value="Outro">Outro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-6 border-t mt-6">
-                  <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
+          <TooltipProvider>
+            <Tooltip delayDuration={0}>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDownloadConfig({ isOpen: true, type: 'all' })}
+                    disabled={!selectedCompanyId}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Todos os Leads
                   </Button>
-                  <Button type="submit" className="flex-1" disabled={creating}>
-                    {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : 'Criar Lead'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                </span>
+              </TooltipTrigger>
+              {!selectedCompanyId && (
+                <TooltipContent className="bg-destructive text-destructive-foreground border-none">
+                  <div className="flex items-center gap-2 py-1">
+                    <AlertCircle size={14} />
+                    <p className="text-xs font-bold">Selecione uma imobiliária antes de acessar os leads</p>
+                  </div>
+                </TooltipContent>
+              )}
+            </Tooltip>
+
+            <Tooltip delayDuration={0}>
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <TooltipTrigger asChild>
+                  <span>
+                    <DialogTrigger asChild>
+                      <Button
+                        disabled={!selectedCompanyId}
+                        onClick={() => {
+                          setNewLead({
+                            name: '',
+                            phone: '',
+                            email: '',
+                            interest: '',
+                            source: '',
+                            my_broker: user?.role === 'broker' ? user.id : '',
+                            my_manager: user?.role === 'manager' ? user.id : (user?.role === 'broker' ? (user.manager_id || '') : '')
+                          });
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Novo Lead
+                      </Button>
+                    </DialogTrigger>
+                  </span>
+                </TooltipTrigger>
+                {!selectedCompanyId && (
+                  <TooltipContent className="bg-destructive text-destructive-foreground border-none">
+                    <div className="flex items-center gap-2 py-1">
+                      <AlertCircle size={14} />
+                      <p className="text-xs font-bold">Selecione uma imobiliária antes de cadastrar leads</p>
+                    </div>
+                  </TooltipContent>
+                )}
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Novo Lead</DialogTitle>
+                  </DialogHeader>
+                  <form onSubmit={handleCreateLead} className="space-y-4 mt-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="lead-name">Nome *</Label>
+                      <Input
+                        id="lead-name"
+                        placeholder="Nome completo do lead"
+                        required
+                        value={newLead.name}
+                        onChange={(e) => setNewLead({ ...newLead, name: e.target.value })}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="lead-phone">Telefone *</Label>
+                        <Input
+                          id="lead-phone"
+                          placeholder="(11) 99999-9999"
+                          required
+                          value={newLead.phone}
+                          onChange={(e) => {
+                            const masked = e.target.value
+                              .replace(/\D/g, '')
+                              .replace(/^(\d{2})(\d)/g, '($1) $2')
+                              .replace(/(\d{5})(\d)/, '$1-$2')
+                              .substring(0, 15);
+                            setNewLead({ ...newLead, phone: masked });
+                          }}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="lead-email">Email (Opcional)</Label>
+                        <Input
+                          id="lead-email"
+                          type="email"
+                          placeholder="email@exemplo.com"
+                          value={newLead.email}
+                          onChange={(e) => setNewLead({ ...newLead, email: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="lead-interest">Interesse (Opcional)</Label>
+                      <Input
+                        id="lead-interest"
+                        placeholder="Ex: Apartamento 3 quartos..."
+                        value={newLead.interest}
+                        onChange={(e) => setNewLead({ ...newLead, interest: e.target.value })}
+                      />
+                    </div>
+
+                    {/* Hierarchy Logic */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(user?.role === 'owner') && (
+                        <div className="space-y-2">
+                          <Label htmlFor="lead-manager">Gerente</Label>
+                          <Select
+                            value={newLead.my_manager}
+                            onValueChange={(val) => setNewLead({ ...newLead, my_manager: val, my_broker: '' })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o gerente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fullTeam.filter(m => m.user_type === 'manager').map(m => (
+                                <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {(user?.role === 'owner' || user?.role === 'manager') && (
+                        <div className="space-y-2">
+                          <Label htmlFor="lead-broker">Corretor</Label>
+                          <Select
+                            value={newLead.my_broker}
+                            onValueChange={(val) => setNewLead({ ...newLead, my_broker: val })}
+                            disabled={user?.role === 'owner' && !newLead.my_manager}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecione o corretor" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {fullTeam
+                                .filter(b => b.user_type === 'broker')
+                                // Se for owner, filtra brokers do gerente selecionado
+                                // Se for manager, ele só vê os dele (listTeam já deve retornar filtrado pela API se for manager logado)
+                                .filter(b => !newLead.my_manager || b.my_manager === newLead.my_manager)
+                                .map(b => (
+                                  <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>
+                                ))
+                              }
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {user?.role === 'broker' && (
+                        <div className="space-y-2">
+                          <Label>Atribuído a</Label>
+                          <Input value={user.full_name} disabled className="bg-muted/50" />
+                        </div>
+                      )}
+
+                      <div className="space-y-2 col-span-1">
+                        <Label htmlFor="lead-origin">Origem</Label>
+                        <Select
+                          value={newLead.source}
+                          onValueChange={(val) => setNewLead({ ...newLead, source: val })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a origem" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="WhatsApp">WhatsApp</SelectItem>
+                            <SelectItem value="Site">Site</SelectItem>
+                            <SelectItem value="Instagram">Instagram</SelectItem>
+                            <SelectItem value="Facebook">Facebook</SelectItem>
+                            <SelectItem value="Google">Google</SelectItem>
+                            <SelectItem value="Indicação">Indicação</SelectItem>
+                            <SelectItem value="Portais">Portais</SelectItem>
+                            <SelectItem value="Outro">Outro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-6 border-t mt-6">
+                      <Button type="button" variant="ghost" className="flex-1" onClick={() => setIsDialogOpen(false)}>
+                        Cancelar
+                      </Button>
+                      <Button type="submit" className="flex-1" disabled={creating}>
+                        {creating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : 'Criar Lead'}
+                      </Button>
+                    </div>
+                  </form>
+                </DialogContent>
+              </Dialog>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
