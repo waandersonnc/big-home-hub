@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { BarChart3, TrendingUp, Users, Building2 } from 'lucide-react';
+import { TrendingUp, Users, DollarSign } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { KPICard } from '@/components/ui/kpi-card';
 import {
     BarChart,
     Bar,
@@ -14,6 +15,51 @@ import {
 import { useAuthContext } from '@/contexts/AuthContext';
 import { dashboardService, OverviewStats, CompanyStats } from '@/services/dashboard.service';
 import { LoadingScreen } from '@/components/LoadingScreen';
+
+// Custom Tooltip for Leads Chart
+const CustomLeadsTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || payload.length === 0) return null;
+
+    return (
+        <div className="bg-slate-900/95 backdrop-blur-md border border-blue-500/30 rounded-xl px-4 py-3 shadow-2xl">
+            <p className="text-xs text-blue-400 mb-2 font-medium">{label}</p>
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                <span className="text-xs text-blue-400 capitalize">Leads</span>
+                <span className="text-xs text-blue-300 font-semibold ml-auto">
+                    {payload[0].value.toLocaleString('pt-BR')}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+// Custom Tooltip for Revenue Chart
+const CustomRevenueTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload || payload.length === 0) return null;
+
+    const formatCurrencyValue = (value: number) => {
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(value);
+    };
+
+    return (
+        <div className="bg-slate-900/95 backdrop-blur-md border border-green-500/30 rounded-xl px-4 py-3 shadow-2xl">
+            <p className="text-xs text-green-400 mb-2 font-medium">{label}</p>
+            <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-xs text-green-400 capitalize">Faturamento</span>
+                <span className="text-xs text-green-300 font-semibold ml-auto">
+                    {formatCurrencyValue(payload[0].value)}
+                </span>
+            </div>
+        </div>
+    );
+};
 
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -95,55 +141,40 @@ export default function AllDash() {
                 <p className="text-muted-foreground">Métricas agregadas de todas as suas imobiliárias.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-                <Card className="p-6 space-y-2 border-none shadow-soft">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Total de Leads</span>
-                        <Users size={16} />
-                    </div>
-                    <div className="text-2xl font-bold">{displayStats.totalLeads.toLocaleString('pt-BR')}</div>
-                </Card>
 
-                <Card className="p-6 space-y-2 border-none shadow-soft">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Faturamento Total</span>
-                        <TrendingUp size={16} />
-                    </div>
-                    <div className="text-2xl font-bold">{formatCurrency(displayStats.totalRevenue)}</div>
-                </Card>
-
-                <Card className="p-6 space-y-2 border-none shadow-soft">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Vendas Totais</span>
-                        <TrendingUp size={16} />
-                    </div>
-                    <div className="text-2xl font-bold">{displayStats.totalSales}</div>
-                </Card>
-
-                <Card className="p-6 space-y-2 border-none shadow-soft">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Imóveis Totais</span>
-                        <Building2 size={16} />
-                    </div>
-                    <div className="text-2xl font-bold">{displayStats.totalProperties}</div>
-                </Card>
-
-                <Card className="p-6 space-y-2 border-none shadow-soft">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Gerentes</span>
-                        <Users size={16} />
-                    </div>
-                    <div className="text-2xl font-bold">{displayStats.managersCount}</div>
-                </Card>
-
-                <Card className="p-6 space-y-2 border-none shadow-soft">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                        <span className="text-sm font-medium">Corretores</span>
-                        <Users size={16} />
-                    </div>
-                    <div className="text-2xl font-bold">{displayStats.brokersCount}</div>
-                </Card>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <KPICard
+                    title="Total de Leads"
+                    value={displayStats.totalLeads.toLocaleString('pt-BR')}
+                    icon={Users}
+                    color="primary"
+                />
+                <KPICard
+                    title="Faturamento Total"
+                    value={formatCurrency(displayStats.totalRevenue)}
+                    icon={DollarSign}
+                    color="warning"
+                />
+                <KPICard
+                    title="Vendas Totais"
+                    value={displayStats.totalSales.toString()}
+                    icon={TrendingUp}
+                    color="success"
+                />
+                <KPICard
+                    title="Gerentes"
+                    value={displayStats.managersCount.toString()}
+                    icon={Users}
+                    color="primary"
+                />
+                <KPICard
+                    title="Corretores"
+                    value={displayStats.brokersCount.toString()}
+                    icon={Users}
+                    color="purple"
+                />
             </div>
+
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <Card className="p-8 border-none shadow-soft space-y-6">
@@ -166,9 +197,8 @@ export default function AllDash() {
                                     />
                                     <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                                     <Tooltip
-                                        cursor={{ fill: '#f8fafc' }}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                        formatter={(value: number) => [value.toLocaleString('pt-BR'), 'Leads']}
+                                        content={<CustomLeadsTooltip />}
+                                        cursor={{ fill: 'transparent' }}
                                     />
                                     <Bar dataKey="leads" radius={[4, 4, 0, 0]} barSize={40}>
                                         {companiesData.map((entry, index) => (
@@ -210,9 +240,8 @@ export default function AllDash() {
                                         tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                                     />
                                     <Tooltip
-                                        cursor={{ fill: '#f8fafc' }}
-                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
-                                        formatter={(value: number) => [formatCurrency(value), 'Faturamento']}
+                                        content={<CustomRevenueTooltip />}
+                                        cursor={{ fill: 'transparent' }}
                                     />
                                     <Bar dataKey="revenue" radius={[4, 4, 0, 0]} barSize={40} fill="#10b981" />
                                 </BarChart>

@@ -49,10 +49,10 @@ export function KPICard({
           )}
         </div>
         <div className={cn(
-          'rounded-xl p-2.5',
+          'rounded-xl p-2',
           colorVariants[color]
         )}>
-          <Icon className="h-5 w-5" />
+          <Icon className="h-4 w-4" />
         </div>
       </div>
     </div>
