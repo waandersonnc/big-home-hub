@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Eye, MousePointer, Target, DollarSign, Users, TrendingUp, Loader2, Link as LinkIcon } from 'lucide-react';
+import { Eye, MousePointer, Target, DollarSign, Users, TrendingUp, Loader2, Link as LinkIcon, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -25,6 +25,8 @@ import {
   Legend,
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import { MetaConnectModal } from '@/components/announcements/MetaConnectModal';
+import { metaService } from '@/services/meta.service';
 
 export default function Announcements() {
   const isDemo = demoStore.isActive;
@@ -32,6 +34,7 @@ export default function Announcements() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'month' | 'lastMonth'>('month');
+  const [isMetaConnected, setIsMetaConnected] = useState(false);
 
   const fetchData = async () => {
     if (!selectedCompanyId && !isDemo) {
@@ -44,6 +47,12 @@ export default function Announcements() {
     try {
       const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
       if (companyId) {
+        // Check integration status
+        if (selectedCompanyId) { // Only check real integration for real companies
+          const integration = await metaService.getIntegration(selectedCompanyId);
+          setIsMetaConnected(!!integration?.is_active);
+        }
+
         const data = await campaignService.listCampaigns(companyId, period);
         setCampaigns(data || []);
       } else {
@@ -97,10 +106,21 @@ export default function Announcements() {
           <p className="text-muted-foreground">Acompanhe o desempenho das suas campanhas</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="gap-2 border-primary/20 hover:bg-primary/5 text-primary font-bold">
-            <LinkIcon size={16} />
-            Conectar conta
-          </Button>
+          <MetaConnectModal>
+            <Button
+              variant={isMetaConnected ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "gap-2 font-bold",
+                isMetaConnected
+                  ? "bg-green-600 hover:bg-green-700 text-white"
+                  : "border-primary/20 hover:bg-primary/5 text-primary"
+              )}
+            >
+              {isMetaConnected ? <CheckCircle size={16} /> : <LinkIcon size={16} />}
+              {isMetaConnected ? "Conta Conectada" : "Conectar conta"}
+            </Button>
+          </MetaConnectModal>
           <Select value={period} onValueChange={(val) => setPeriod(val as 'month' | 'lastMonth')}>
             <SelectTrigger className="w-40">
               <SelectValue />
