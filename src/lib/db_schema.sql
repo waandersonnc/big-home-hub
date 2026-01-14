@@ -14,8 +14,6 @@ CREATE TABLE owners (
   full_name VARCHAR NOT NULL,
   phone VARCHAR,
   profile_photo_url VARCHAR,
-  onboarding_completed BOOLEAN DEFAULT FALSE,
-  onboarding_step INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

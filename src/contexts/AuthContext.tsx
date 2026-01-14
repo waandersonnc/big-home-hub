@@ -46,7 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             // 1. Try Owners
             const { data: owner, error: ownerError } = await supabase
                 .from('owners')
-                .select('id, email, name, phone, validoutoken, onboarding_completed, avatar_url, document, settings')
+                .select('id, email, name, phone, validoutoken, avatar_url, document, settings')
                 .eq('id', authUser.id)
                 .maybeSingle();
 
@@ -59,7 +59,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     phone: owner.phone,
                     role: 'owner',
                     validoutoken: owner.validoutoken,
-                    onboarding_completed: owner.onboarding_completed,
                     avatar_url: owner.avatar_url,
                     document: owner.document,
                     settings: owner.settings
@@ -176,8 +175,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         email: 'demo@bighome.com.br',
         full_name: 'Usuário Demo',
         role: 'owner',
-        validoutoken: true,
-        onboarding_completed: true
+        validoutoken: true
     };
 
     const effectiveUser = isDemo ? demoOwner : user;

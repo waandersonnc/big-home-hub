@@ -5,7 +5,8 @@ import { demoStore } from '@/lib/demoStore';
 import { Loader2 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { toast } from '@/components/ui/use-toast';
-import { useAuthContext, AuthUser } from '@/contexts/AuthContext';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { AuthUser } from '@/types';
 import TokenVerificationModal from '@/components/TokenVerificationModal';
 
 export function OnboardingGuard() {
@@ -68,10 +69,6 @@ export function OnboardingGuard() {
         );
     }
 
-    // Owner not completed onboarding - redirect to onboarding
-    if (!isDemo && user && user.role === 'owner' && !user.onboarding_completed) {
-        return <Navigate to="/onboarding" replace />;
-    }
 
     // All checks passed - render protected routes
     return <Outlet context={{ user, isDemo }} />;

@@ -28,7 +28,6 @@ export interface AuthUser {
     real_estate_company_id?: string;
     manager_id?: string; // For brokers - their manager
     validoutoken?: boolean; // For owners
-    onboarding_completed?: boolean; // For owners
     avatar_url?: string;
     document?: string;
     settings?: any;

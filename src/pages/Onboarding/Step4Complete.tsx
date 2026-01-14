@@ -24,10 +24,8 @@ export default function Step4Complete({ userId, data, onFinish }: Step4Props) {
     const handleComplete = async () => {
         setIsLoading(true);
         try {
-            const { error } = await supabase
-                .from('owners')
-                .update({ onboarding_completed: true })
-                .eq('id', userId);
+            // Field removed from DB
+            const error = null;
 
             if (error) throw error;
 
