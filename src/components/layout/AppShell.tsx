@@ -19,9 +19,9 @@ export function AppShell() {
   const { isLoading: companyLoading } = useCompany();
   const isDemo = demoStore.isActive;
 
-  if (authLoading || companyLoading) {
-    return <LoadingScreen message="Preparando seu ambiente..." />;
-  }
+  // if (authLoading || companyLoading) {
+  //   return <LoadingScreen message="Preparando seu ambiente..." />;
+  // }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/10 relative">
@@ -89,7 +89,9 @@ export function AppShell() {
           "min-h-[calc(100vh-3.5rem)] lg:min-h-screen flex flex-col"
         )}>
           <div className="flex-1 p-4 md:p-8">
-            <Outlet />
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-900 ease-in-out">
+              <Outlet />
+            </div>
           </div>
         </main>
       </div>

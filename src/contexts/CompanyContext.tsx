@@ -16,7 +16,7 @@ interface CompanyContextType {
     companies: Company[];
     selectedCompany: Company | null;
     isLoading: boolean;
-    refreshCompanies: () => Promise<void>;
+    refreshCompanies: (enableLoading?: boolean) => Promise<void>;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -34,7 +34,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const { user, isOwner, isManager, isBroker, isDemo: authIsDemo } = useAuthContext();
 
-    const fetchCompanies = useCallback(async () => {
+    const fetchCompanies = useCallback(async (enableLoading: boolean = true) => {
         // Check demo mode from BOTH demoStore directly AND auth context
         // This ensures we catch demo mode even if auth context hasn't re-rendered yet
         if (!user && !demoStore.isActive) {
@@ -45,7 +45,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         }
 
         try {
-            setIsLoading(true);
+            if (enableLoading) setIsLoading(true);
             let fetchedCompanies: Company[] = [];
 
             if (isOwner || (authIsDemo && !user?.real_estate_company_id)) {
@@ -116,7 +116,7 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
             logger.error('Erro ao buscar empresas:', (error as Error).message);
         } finally {
-            setIsLoading(false);
+            if (enableLoading) setIsLoading(false);
         }
     }, [user, isOwner, isManager, isBroker, authIsDemo]);
 
@@ -134,8 +134,12 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
 
     // Refresh on auth state change
     useEffect(() => {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-            fetchCompanies();
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+            if (event === 'TOKEN_REFRESHED') {
+                fetchCompanies(false); // Silent refresh
+            } else {
+                fetchCompanies(true);
+            }
         });
 
         return () => subscription.unsubscribe();

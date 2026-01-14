@@ -10,9 +10,8 @@ import { LeadInformativeBlocker } from "@/components/LeadInformativeBlocker";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { Suspense, lazy } from "react";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { PageLoader } from "@/components/PageLoader";
 
-// Lazy load pages to improve initial load time
 const Login = lazy(() => import("@/pages/Login"));
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Team = lazy(() => import("@/pages/Team/index"));
@@ -43,7 +42,7 @@ const App = () => (
           <CompanyProvider>
             <LeadInformativeBlocker />
             <BrowserRouter>
-              <Suspense fallback={<LoadingScreen />}>
+              <Suspense fallback={<PageLoader />}>
                 <Routes>
                   <Route path="/" element={<Navigate to="/login" replace />} />
                   <Route path="/login" element={<Login />} />

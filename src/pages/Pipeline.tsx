@@ -326,7 +326,7 @@ export default function Pipeline() {
         setFullTeam([]);
       }
     } catch (error) {
-      console.error('Erro ao buscar pipeline:', error);
+      //       console.error('Erro ao buscar pipeline:', error);
       setLeads([]);
       setAgents([]);
       setFullTeam([]);
@@ -352,7 +352,6 @@ export default function Pipeline() {
             filter: `company_id=eq.${selectedCompanyId}`
           },
           (payload) => {
-            console.log('Realtime update received:', payload);
             fetchData();
           }
         )
