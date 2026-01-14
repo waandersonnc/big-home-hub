@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { crypto } from "https://deno.land/std@0.177.0/crypto/mod.ts";
-import { hmac } from "https://deno.land/std@0.177.0/crypto/hmac.ts";
+
 
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -53,6 +53,23 @@ serve(async (req) => {
             const proof = await generateProof(access_token, FB_APP_SECRET);
 
             const fbUrl = `https://graph.facebook.com/v18.0/me/adaccounts?fields=name,account_id,id,currency,account_status&access_token=${access_token}&appsecret_proof=${proof}`;
+
+            const fbRes = await fetch(fbUrl);
+            const fbData = await fbRes.json();
+
+            if (fbData.error) {
+                throw new Error(fbData.error.message);
+            }
+
+            return new Response(JSON.stringify({ data: fbData.data }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            });
+        }
+
+        if (action === 'verify_permissions') {
+            const proof = await generateProof(access_token, FB_APP_SECRET);
+            const fbUrl = `https://graph.facebook.com/v18.0/me/permissions?access_token=${access_token}&appsecret_proof=${proof}`;
 
             const fbRes = await fetch(fbUrl);
             const fbData = await fbRes.json();

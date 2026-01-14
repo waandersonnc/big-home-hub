@@ -18,7 +18,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     const [accessToken, setAccessToken] = useState('');
     const [isDisconnecting, setIsDisconnecting] = useState(false);
 
-    const { isLoaded, login, getAdAccounts, verifyPermissions } = useFacebookSDK();
+    const { isLoaded, login } = useFacebookSDK();
     const { selectedCompanyId } = useCompany();
     const { user } = useAuthContext();
 
@@ -46,11 +46,12 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             setAccessToken(response.authResponse.accessToken);
 
             // Verificar permissões
+            // Verificar permissões (backend seguro)
             try {
-                const perms = await verifyPermissions();
+                const perms = await metaService.verifyPermissions(response.authResponse.accessToken);
                 const required = ['ads_read', 'leads_retrieval'];
                 const missing = required.filter(r =>
-                    !perms.find((p: any) => p.permission === r && p.status === 'granted')
+                    !perms.some((p: any) => p.permission === r && p.status === 'granted')
                 );
 
                 if (missing.length > 0) {

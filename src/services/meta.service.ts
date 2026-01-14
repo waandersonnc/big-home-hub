@@ -93,5 +93,18 @@ export const metaService = {
         if (error) throw error;
         if (data.error) throw new Error(data.error);
         return data.data || [];
+    },
+
+    async verifyPermissions(accessToken: string) {
+        const { data, error } = await supabase.functions.invoke('meta-sync', {
+            body: {
+                action: 'verify_permissions',
+                access_token: accessToken
+            }
+        });
+
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+        return data.data || [];
     }
 };
