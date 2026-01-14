@@ -64,11 +64,13 @@ export const useFacebookSDK = () => {
         return new Promise<fb.StatusResponse>((resolve, reject) => {
             if (!window.FB) return reject('Facebook SDK not loaded');
 
+            console.log('[Meta SDK] Starting login with scopes:', scope);
             window.FB.login((response) => {
+                console.log('[Meta SDK] Login response:', response);
                 if (response.authResponse) {
                     resolve(response);
                 } else {
-                    reject('User cancelled login or did not fully authorize.');
+                    reject('O usuário cancelou o login ou não autorizou completamente.');
                 }
             }, { scope });
         });
@@ -78,13 +80,31 @@ export const useFacebookSDK = () => {
         return new Promise<any[]>((resolve, reject) => {
             if (!window.FB) return reject('Facebook SDK not loaded');
 
+            console.log('[Meta SDK] Fetching ad accounts...');
             // Fetch businesses or directly ad accounts
             window.FB.api('/me/adaccounts', { fields: 'name,account_id,id,currency,account_status' }, (response: any) => {
+                console.log('[Meta SDK] Ad accounts response:', response);
+                if (response.error) {
+                    const errorMsg = response.error.message || 'Erro desconhecido ao buscar contas de anúncio';
+                    console.error('[Meta SDK] Error details:', response.error);
+                    return reject(errorMsg);
+                }
+                resolve(response.data || []);
+            });
+        });
+    };
+
+    const verifyPermissions = () => {
+        return new Promise<any[]>((resolve, reject) => {
+            if (!window.FB) return reject('Facebook SDK not loaded');
+
+            window.FB.api('/me/permissions', (response: any) => {
+                console.log('[Meta SDK] Permissions check:', response);
                 if (response.error) return reject(response.error);
                 resolve(response.data || []);
             });
         });
     };
 
-    return { isLoaded, login, getAdAccounts };
+    return { isLoaded, login, getAdAccounts, verifyPermissions };
 };

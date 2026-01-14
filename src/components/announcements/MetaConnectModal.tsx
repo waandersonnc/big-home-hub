@@ -18,7 +18,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     const [accessToken, setAccessToken] = useState('');
     const [isDisconnecting, setIsDisconnecting] = useState(false);
 
-    const { isLoaded, login, getAdAccounts } = useFacebookSDK();
+    const { isLoaded, login, getAdAccounts, verifyPermissions } = useFacebookSDK();
     const { selectedCompanyId } = useCompany();
     const { user } = useAuthContext();
 
@@ -45,12 +45,32 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             }
             setAccessToken(response.authResponse.accessToken);
 
+            // Verificar permissões
+            try {
+                const perms = await verifyPermissions();
+                const required = ['ads_read', 'leads_retrieval'];
+                const missing = required.filter(r =>
+                    !perms.find((p: any) => p.permission === r && p.status === 'granted')
+                );
+
+                if (missing.length > 0) {
+                    console.warn('Permissões faltando:', missing);
+                    toast.warning(`Atenção: Algumas permissões importantes não foram concedidas (${missing.join(', ')}). A integração pode não funcionar corretamente.`);
+                }
+            } catch (permErr) {
+                console.error('Erro ao verificar permissões:', permErr);
+            }
+
             const accounts = await getAdAccounts();
+            if (accounts.length === 0) {
+                toast.info('Nenhuma conta de anúncios foi encontrada para este usuário. Verifique se você tem acesso administrativo.');
+            }
             setAdAccounts(accounts);
             setStep(2);
-        } catch (error) {
-            console.error(error);
-            toast.error('Erro ao conectar com Facebook');
+        } catch (error: any) {
+            console.error('Erro no login/busca:', error);
+            // Mostra o erro exato retornado pelo SDK para o usuário
+            toast.error(typeof error === 'string' ? error : (error.message || 'Erro ao conectar com Facebook'));
         } finally {
             setLoading(false);
         }
