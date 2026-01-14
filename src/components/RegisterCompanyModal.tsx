@@ -164,7 +164,7 @@ export function RegisterCompanyModal({ isOpen, onClose }: RegisterCompanyModalPr
         e.preventDefault();
         if (!user) return;
 
-        if (!formData.name || !formData.cnpj || !formData.phone || !formData.address || !formData.city || !formData.state) {
+        if (!formData.name || !formData.cnpj || !formData.phone || !formData.email || !formData.address || !formData.city || !formData.state) {
             toast.error('Preencha todos os campos obrigatórios.');
             return;
         }
@@ -195,7 +195,7 @@ export function RegisterCompanyModal({ isOpen, onClose }: RegisterCompanyModalPr
                 .from('real_estate_companies')
                 .insert({
                     name: formData.name,
-                    trading_name: formData.name,
+                    trading_name: formData.name, // Usando o nome como fantasia por padrão
                     document: formData.cnpj,
                     email: formData.email,
                     phone: formData.phone,
@@ -204,7 +204,7 @@ export function RegisterCompanyModal({ isOpen, onClose }: RegisterCompanyModalPr
                     city: formData.city,
                     state: formData.state,
                     logo_url: finalLogoUrl,
-                    owner_id: user.id
+                    owner_id: user.id // O ID do dono logado é salvo no campo owner_id conforme schema do banco
                 })
                 .select()
                 .single();
@@ -212,7 +212,7 @@ export function RegisterCompanyModal({ isOpen, onClose }: RegisterCompanyModalPr
             if (error) throw error;
 
             toast.success('Imobiliária cadastrada com sucesso!');
-            await refreshCompanies();
+            await refreshCompanies(false); // Silent refresh para não travar a tela
             onClose();
         } catch (error: any) {
             console.error('Erro ao cadastrar imobiliária:', error);
@@ -293,13 +293,14 @@ export function RegisterCompanyModal({ isOpen, onClose }: RegisterCompanyModalPr
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="comp-email">E-mail de Contato</Label>
+                            <Label htmlFor="comp-email">E-mail de Contato *</Label>
                             <Input
                                 id="comp-email"
                                 type="email"
                                 placeholder="contato@imobiliaria.com"
                                 value={formData.email}
                                 onChange={(e) => setFormData(p => ({ ...p, email: e.target.value }))}
+                                required
                             />
                         </div>
                         <div className="space-y-2">
