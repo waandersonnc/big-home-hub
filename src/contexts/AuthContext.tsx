@@ -149,7 +149,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(null);
         setSupabaseUser(null);
         demoStore.deactivate();
-        window.location.href = '/login';
     };
 
     useEffect(() => {
