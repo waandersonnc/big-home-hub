@@ -87,6 +87,11 @@ export const useFacebookSDK = () => {
                 if (response.error) {
                     const errorMsg = response.error.message || 'Erro desconhecido ao buscar contas de anúncio';
                     console.error('[Meta SDK] Error details:', response.error);
+
+                    if (errorMsg.includes('appsecret_proof')) {
+                        return reject('Configuração de Segurança do Facebook: Desative "Exigir segredo do aplicativo" (App Secret Proof) no painel do desenvolvedor.');
+                    }
+
                     return reject(errorMsg);
                 }
                 resolve(response.data || []);

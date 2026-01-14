@@ -61,7 +61,9 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 console.error('Erro ao verificar permissões:', permErr);
             }
 
-            const accounts = await getAdAccounts();
+            // Busca segura via Backend (Edge Function)
+            const accounts = await metaService.getAdAccounts(response.authResponse.accessToken);
+
             if (accounts.length === 0) {
                 toast.info('Nenhuma conta de anúncios foi encontrada para este usuário. Verifique se você tem acesso administrativo.');
             }

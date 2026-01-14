@@ -79,5 +79,19 @@ export const metaService = {
             logger.error('Erro em metaService.getIntegration:', (error as Error).message);
             return null;
         }
+    },
+
+    async getAdAccounts(accessToken: string) {
+        // Chamada segura via Edge Function para evitar expor App Secret
+        const { data, error } = await supabase.functions.invoke('meta-sync', {
+            body: {
+                action: 'get_ad_accounts',
+                access_token: accessToken
+            }
+        });
+
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+        return data.data || [];
     }
 };
