@@ -72,7 +72,7 @@ export const useFacebookSDK = () => {
                 } else {
                     reject('O usuário cancelou o login ou não autorizou completamente.');
                 }
-            }, { scope });
+            }, { scope, auth_type: 'rerequest' });
         });
     };
 

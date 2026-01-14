@@ -50,7 +50,7 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
         localStorage.removeItem('is_demo');
         demoStore.deactivate();
         await signOut();
-        navigate('/login');
+        navigate('/');
     };
 
     // selectedCompany now comes from context directly
