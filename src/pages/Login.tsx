@@ -200,7 +200,7 @@ export default function Login() {
   };
 
   const handleVerificationSuccess = async () => {
-    await refreshUser();
+    await refreshUser(false);
     setShowVerificationModal(false);
     toast({
       title: "Conta verificada!",

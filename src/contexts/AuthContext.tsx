@@ -17,7 +17,7 @@ interface AuthContextType {
     canViewAllData: boolean;
     canManageTeam: boolean;
     canViewOwnDataOnly: boolean;
-    refreshUser: () => Promise<void>;
+    refreshUser: (enableLoading?: boolean) => Promise<void>;
     signOut: () => Promise<void>;
 }
 
@@ -115,11 +115,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     const isRefreshingRef = useRef(false);
 
-    const refreshUser = async () => {
+    const refreshUser = async (enableLoading: boolean = true) => {
         if (isRefreshingRef.current) return;
         isRefreshingRef.current = true;
 
-        setIsLoading(true);
+        if (enableLoading) setIsLoading(true);
         try {
             logger.debug('AuthContext: refreshUser starting');
             const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -134,7 +134,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } catch (err) {
             logger.error('AuthContext: Error refreshing user:', err);
         } finally {
-            setIsLoading(false);
+            if (enableLoading) setIsLoading(false);
             isRefreshingRef.current = false;
             logger.debug('AuthContext: refreshUser finished');
         }
