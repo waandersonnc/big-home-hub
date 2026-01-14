@@ -38,7 +38,7 @@ export const useFacebookSDK = () => {
                     appId: FACEBOOK_APP_ID,
                     cookie: true,
                     xfbml: true,
-                    version: 'v18.0'
+                    version: 'v24.0'
                 });
                 setIsLoaded(true);
             };

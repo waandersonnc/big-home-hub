@@ -122,7 +122,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (enableLoading) setIsLoading(true);
         try {
             logger.debug('AuthContext: refreshUser starting');
-            const { data: { user: authUser } } = await supabase.auth.getUser();
+            // Alterado de getUser() para getSession() para evitar deslogue ao recarregar (F5)
+            // getSession recupera a sessão do armazenamento local e lida melhor com refresh tokens
+            const { data: { session } } = await supabase.auth.getSession();
+            const authUser = session?.user;
+
             if (authUser) {
                 const userData = await fetchUserData(authUser);
                 setUser(userData);

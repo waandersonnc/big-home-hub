@@ -30,11 +30,13 @@ import { metaService } from '@/services/meta.service';
 
 export default function Announcements() {
   const isDemo = demoStore.isActive;
-  const { selectedCompanyId } = useCompany();
+  const { selectedCompanyId, companies } = useCompany();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<'month' | 'lastMonth'>('month');
   const [isMetaConnected, setIsMetaConnected] = useState(false);
+
+  const hasCompany = companies.length > 0;
 
   const fetchData = async () => {
     if (!selectedCompanyId && !isDemo) {
@@ -108,6 +110,7 @@ export default function Announcements() {
         <div className="flex items-center gap-3">
           <MetaConnectModal>
             <Button
+              disabled={!hasCompany}
               variant={isMetaConnected ? "default" : "outline"}
               size="sm"
               className={cn(
