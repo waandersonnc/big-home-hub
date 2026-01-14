@@ -179,13 +179,13 @@ export function RegisterCompanyModal({ isOpen, onClose }: RegisterCompanyModalPr
                 const filePath = `company-logos/${fileName}`;
 
                 const { error: uploadError } = await supabase.storage
-                    .from('logos')
+                    .from('profile-photos')
                     .upload(filePath, logoFile);
 
                 if (uploadError) throw uploadError;
 
                 const { data: { publicUrl } } = supabase.storage
-                    .from('logos')
+                    .from('profile-photos')
                     .getPublicUrl(filePath);
 
                 finalLogoUrl = publicUrl;
