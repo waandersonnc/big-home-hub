@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useFacebookSDK } from '@/hooks/useFacebookSDK';
 import { metaService } from '@/services/meta.service';
 import { useCompany } from '@/contexts/CompanyContext';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { Loader2, Facebook, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -19,6 +20,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
     const { isLoaded, login, getAdAccounts } = useFacebookSDK();
     const { selectedCompanyId } = useCompany();
+    const { user } = useAuthContext();
 
     // Check initial status
     useEffect(() => {
@@ -59,14 +61,19 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         setLoading(true);
         try {
+            const { user } = useAuthContext();
+
+            // ... inside handleSave
             const account = adAccounts.find(a => a.id === selectedAccount);
+            const ownerId = user?.role === 'owner' ? user.id : user?.my_owner;
 
             await metaService.saveIntegration({
                 company_id: selectedCompanyId,
                 meta_access_token: accessToken,
                 meta_ad_account_id: account.account_id,
                 meta_ad_account_name: account.name,
-                is_active: true
+                is_active: true,
+                my_owner: ownerId
             });
 
             setStep(3);

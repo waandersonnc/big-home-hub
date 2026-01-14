@@ -8,6 +8,7 @@ export interface MetaIntegration {
     meta_access_token: string;
     meta_ad_account_id?: string;
     meta_ad_account_name?: string;
+    my_owner?: string;
     is_active: boolean;
 }
 
