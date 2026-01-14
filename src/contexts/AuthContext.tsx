@@ -157,7 +157,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event) => {
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-                await refreshUser();
+                // Pass false to avoid blocking the UI with a loading screen during background refreshes
+                // This preserves form data and scroll position if the user is already on a page
+                await refreshUser(false);
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setSupabaseUser(null);
