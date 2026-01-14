@@ -20,7 +20,7 @@ export const metaService = {
                 .from('meta_integrations')
                 .select('id')
                 .eq('company_id', data.company_id)
-                .single();
+                .maybeSingle();
 
             let result;
             if (existing) {
@@ -71,7 +71,7 @@ export const metaService = {
                 .from('meta_integrations')
                 .select('*')
                 .eq('company_id', companyId)
-                .single();
+                .maybeSingle();
 
             if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows found"
             return data;
