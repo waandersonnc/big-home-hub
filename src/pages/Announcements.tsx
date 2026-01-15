@@ -3,7 +3,6 @@ import { Eye, MousePointer, Target, DollarSign, Users, TrendingUp, Loader2, Link
 import { Button } from '@/components/ui/button';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { campaigns as initialCampaigns, campaignPerformance as initialPerformance } from '@/data/mockData';
 import { demoStore } from '@/lib/demoStore';
 import { useCompany } from '@/contexts/CompanyContext';
 import { campaignService } from '@/services/campaign.service';
