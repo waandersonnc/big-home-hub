@@ -9,6 +9,7 @@ import { dashboardService, DashboardStats } from '@/services/dashboard.service';
 import { CHART_CONFIG, UI_TEXT } from '@/lib/constants';
 import { HorizontalFunnel } from '@/components/HorizontalFunnel';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { LeadDistributionTimer } from '@/components/LeadDistributionTimer';
 import {
   Select,
   SelectContent,
@@ -456,12 +457,23 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[9px] font-bold text-card-foreground/80">
-                      {new Date(item.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                    </p>
-                    <p className="text-[8px] text-muted-foreground mt-0.5">
-                      {new Date(item.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
+                    {item.fimDaEspera ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <LeadDistributionTimer targetDate={item.fimDaEspera} />
+                        <p className="text-[8px] text-muted-foreground">
+                          {new Date(item.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-[9px] font-bold text-card-foreground/80">
+                          {new Date(item.updatedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                        </p>
+                        <p className="text-[8px] text-muted-foreground mt-0.5">
+                          {new Date(item.updatedAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </>
+                    )}
                   </div>
                 </div>
               ))

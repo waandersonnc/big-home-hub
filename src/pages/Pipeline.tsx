@@ -314,7 +314,9 @@ export default function Pipeline() {
             my_broker: l.my_broker,
             lastInteractionAt: l.last_interaction_at,
             followupAt: l.followup_scheduled_at,
-            followupNote: l.followup_note
+            followupNote: l.followup_note,
+            esperaIniciada: l.espera_iniciada,
+            fimDaEspera: l.fim_da_espera
           };
         });
 
@@ -409,7 +411,24 @@ export default function Pipeline() {
   }
 
   const getColumnLeads = (status: PipelineColumn) => {
-    return filteredLeads.filter((lead) => lead.status === status);
+    const list = filteredLeads.filter((lead) => lead.status === status);
+    
+    // Sort 'Em Espera' by urgency (active timers first, closest to end first)
+    if (status === 'Em Espera') {
+      return list.sort((a, b) => {
+        const aTime = a.fimDaEspera ? new Date(a.fimDaEspera).getTime() : Infinity;
+        const bTime = b.fimDaEspera ? new Date(b.fimDaEspera).getTime() : Infinity;
+        
+        if (aTime !== bTime) {
+          // If both represent dates, smaller (closer) comes first. 
+          // If one is Infinity (no timer), it goes to bottom.
+          return aTime - bTime;
+        }
+        return 0; // Respeita a ordem original (created_at desc)
+      });
+    }
+
+    return list;
   };
 
 

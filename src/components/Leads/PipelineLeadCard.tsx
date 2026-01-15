@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Phone, Calendar } from 'lucide-react';
+import { Phone, Calendar, Clock } from 'lucide-react';
+import { differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { AgingIndicator } from './AgingIndicator';
@@ -31,6 +32,8 @@ export const PipelineLeadCard: React.FC<PipelineLeadCardProps> = ({
     );
     const [isFollowupModalOpen, setIsFollowupModalOpen] = useState(false);
 
+    const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+
     // Recalcular aging a cada minuto
     useEffect(() => {
         const timer = setInterval(() => {
@@ -39,6 +42,35 @@ export const PipelineLeadCard: React.FC<PipelineLeadCardProps> = ({
 
         return () => clearInterval(timer);
     }, [lead]);
+
+    // Timer regressivo para estágio "Em Espera"
+    useEffect(() => {
+        if ((lead.status === 'Em Espera' || lead.rawStage === 'em espera') && lead.fimDaEspera) {
+            const updateTimer = () => {
+                const now = new Date();
+                const end = new Date(lead.fimDaEspera);
+                const diffValues = differenceInSeconds(end, now);
+
+                if (diffValues <= 0) {
+                    setTimeRemaining("00:00:00");
+                    return;
+                }
+
+                const hours = Math.floor(diffValues / 3600);
+                const minutes = Math.floor((diffValues % 3600) / 60);
+                const seconds = diffValues % 60;
+
+                const formatted = `${hours > 0 ? `${hours}:` : ''}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                setTimeRemaining(formatted);
+            };
+
+            updateTimer(); // Initial call
+            const interval = setInterval(updateTimer, 1000);
+            return () => clearInterval(interval);
+        } else {
+            setTimeRemaining(null);
+        }
+    }, [lead.status, lead.rawStage, lead.fimDaEspera]);
 
     const handleInteraction = () => {
         onCardClick(lead);
@@ -67,6 +99,18 @@ export const PipelineLeadCard: React.FC<PipelineLeadCardProps> = ({
                 {/* Background Pulse for high aging */}
                 {aging.percentage > 80 && aging.isOverdue && (
                     <div className="absolute inset-0 bg-destructive/5 animate-pulse pointer-events-none" />
+                )}
+
+                {/* Timer Banner for 'Em Espera' */}
+                {timeRemaining && (
+                    <div className={cn(
+                        "mb-2.5 rounded-md px-2 py-1.5 flex items-center justify-center gap-1.5 font-bold text-xs border animate-in slide-in-from-top-1 fade-in duration-300",
+                        "bg-orange-500/10 text-orange-700 border-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:border-orange-500/30"
+                    )}>
+                        <Clock className="w-3.5 h-3.5 animate-pulse" />
+                        <span className="font-mono tracking-wide">{timeRemaining}</span>
+                        <span className="text-[10px] font-normal opacity-80 uppercase ml-1">para atendimento</span>
+                    </div>
                 )}
 
                 <div className="flex items-start justify-between mb-1 relative z-10">

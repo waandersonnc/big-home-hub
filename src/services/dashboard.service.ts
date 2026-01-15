@@ -635,7 +635,7 @@ export const dashboardService = {
         try {
             const { data, error } = await supabase
                 .from('leads')
-                .select('id, name, updated_at, my_broker, brokers:my_broker(name)')
+                .select('id, name, updated_at, my_broker, brokers:my_broker(name), espera_iniciada, fim_da_espera')
                 .eq('company_id', companyId)
                 .eq('stage', 'em espera')
                 .order('updated_at', { ascending: false })
@@ -650,7 +650,9 @@ export const dashboardService = {
                 id: l.id,
                 lead: l.name,
                 broker: (l.brokers as any)?.name || 'N/A',
-                updatedAt: l.updated_at
+                updatedAt: l.updated_at,
+                esperaIniciada: l.espera_iniciada,
+                fimDaEspera: l.fim_da_espera
             }));
         } catch (error) {
             logger.error('Erro em getRecentDistributions:', (error as Error).message);
