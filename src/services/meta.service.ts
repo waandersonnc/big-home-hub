@@ -10,6 +10,8 @@ export interface MetaIntegration {
     meta_ad_account_name?: string;
     my_owner?: string;
     is_active: boolean;
+    scope_leads?: boolean;
+    scope_metrics?: boolean;
 }
 
 export const metaService = {

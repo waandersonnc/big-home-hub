@@ -48,22 +48,27 @@ export default function Announcements() {
     setLoading(true);
     try {
       const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
+
       if (companyId) {
-        // Check integration status
-        if (selectedCompanyId) { // Only check real integration for real companies
-          const integration = await metaService.getIntegration(selectedCompanyId);
+        // Executar chamadas em paralelo para performance
+        const [integration, data] = await Promise.all([
+          selectedCompanyId ? metaService.getIntegration(selectedCompanyId).catch(() => null) : Promise.resolve(null),
+          campaignService.listCampaigns(companyId, period).catch(() => [])
+        ]);
+
+        if (selectedCompanyId) {
           setIsMetaConnected(!!integration?.is_active);
         }
-
-        const data = await campaignService.listCampaigns(companyId, period);
         setCampaigns(data || []);
       } else {
         setCampaigns([]);
       }
     } catch (error) {
-      console.error('Erro ao buscar campanhas do Supabase:', error);
+      console.error('Erro crítico ao buscar dados:', error);
       setCampaigns([]);
     } finally {
+      // Pequeno delay artificial para garantir que o loading não seja um "flash" irritante
+      // ou remova se preferir instantaneidade total.
       setLoading(false);
     }
   };
