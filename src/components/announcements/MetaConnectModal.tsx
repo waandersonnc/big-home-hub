@@ -130,7 +130,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         setLoading(true);
         try {
-            const { user } = useAuthContext();
+            // User is already available from component scope
 
             const account = adAccounts.find(a => a.id === selectedAccount);
             const ownerId = user?.role === 'owner' ? user.id : user?.my_owner;
