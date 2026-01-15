@@ -85,23 +85,30 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             try {
                 const permsInMeta = await metaService.verifyPermissions(response.authResponse.accessToken);
                 const dataPerms = permsInMeta.data || [];
+                const warnings: string[] = [];
                 
                 // Check missing permissions
                 if (requestLeads) {
                     const hasPagesShow = dataPerms.some((p: FacebookPermission) => p.permission === 'pages_show_list' && p.status === 'granted');
                     const hasLeadsRet = dataPerms.some((p: FacebookPermission) => p.permission === 'leads_retrieval' && p.status === 'granted');
                     
-                    if (!hasPagesShow) toast.warning('Permissão "pages_show_list" não concedida. Você pode não ver suas páginas.');
-                    if (!hasLeadsRet) toast.warning('Permissão "leads_retrieval" não concedida. Leads podem não ser sincronizados.');
+                    if (!hasPagesShow) warnings.push('Permissão "pages_show_list" não concedida.');
+                    if (!hasLeadsRet) warnings.push('Permissão "leads_retrieval" não concedida.');
                 }
                 
                 if (requestMetrics) {
                     const hasAdsRead = dataPerms.some((p: FacebookPermission) => p.permission === 'ads_read' && p.status === 'granted');
-                    if (!hasAdsRead) toast.warning('Permissão "ads_read" não concedida. Métricas não aparecerão.');
+                    if (!hasAdsRead) warnings.push('Permissão "ads_read" não concedida.');
+                }
+
+                if (warnings.length > 0) {
+                    toast.warning("Atenção com as permissões:", {
+                        description: warnings.join(" "),
+                        duration: 6000
+                    });
                 }
             } catch (permErr) {
                 console.error('Erro ao verificar permissões:', permErr);
-                // We don't block flow, just warn
             }
 
             // Fetch Data based on selection
@@ -117,10 +124,10 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         .catch((accError: unknown) => {
                             const msg = accError instanceof Error ? accError.message : String(accError);
                             if (msg.includes('Unsupported get request')) {
-                                toast.error('Erro de Permissão (Métricas): Verifique se você concedeu "ads_read".');
+                                toast.error('Falha em Métricas: Verifique as permissões concedidas.');
                             } else {
                                 console.error(accError);
-                                toast.error(`Erro ao buscar anúncios: ${msg}`);
+                                toast.error(`Erro nos anúncios: ${msg.substring(0, 50)}...`);
                             }
                         })
                 );
@@ -138,7 +145,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         .catch((err: unknown) => {
                             console.error('Erro Pages:', err);
                             const msg = err instanceof Error ? err.message : String(err);
-                            toast.error(`Falha ao listar páginas: ${msg}`);
+                            toast.error(`Erro nas páginas: ${msg.substring(0, 50)}...`);
                         })
                 );
             } else {
@@ -178,7 +185,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             await metaService.saveIntegration({
                 company_id: selectedCompanyId,
                 meta_access_token: accessToken,
-                meta_ad_account_id: account?.account_id || null, // Note: Use account_id (act_XXX) not id
+                meta_ad_account_id: account?.account_id || null, 
                 meta_ad_account_name: account?.name || null,
                 meta_page_id: page?.id || null,
                 meta_page_name: page?.name || null,
@@ -210,24 +217,19 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         setLoading(true);
         try {
-            await metaService.saveIntegration({
-                company_id: selectedCompanyId,
-                meta_access_token: '',
-                meta_ad_account_id: null,
-                meta_ad_account_name: null,
-                meta_page_id: null,
-                meta_page_name: null,
-                is_active: false,
-                scope_leads: false,
-                scope_metrics: false
-            } as Omit<MetaIntegration, 'id' | 'created_at' | 'updated_at'>);
+            // Agora apagamos a linha do Supabase conforme solicitado
+            await metaService.deleteIntegration(selectedCompanyId);
 
-            toast.success('Conta desconectada com sucesso.');
+            toast.success('Conta removida e dados limpos com sucesso.');
             setIsOpen(false);
-            window.location.reload();
+            
+            // Reload para limpar o estado global da aplicação
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
         } catch (error) {
             console.error(error);
-            toast.error('Erro ao desconectar conta');
+            toast.error('Erro ao remover conexão');
         } finally {
             setLoading(false);
         }

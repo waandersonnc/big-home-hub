@@ -123,5 +123,20 @@ export const metaService = {
         if (error) throw error;
         if (data.error) throw new Error(data.error);
         return data.data || [];
+    },
+
+    async deleteIntegration(companyId: string) {
+        try {
+            const { error } = await supabase
+                .from('meta_integrations')
+                .delete()
+                .eq('company_id', companyId);
+
+            if (error) throw error;
+            return true;
+        } catch (error) {
+            logger.error('Erro em metaService.deleteIntegration:', (error as Error).message);
+            throw error;
+        }
     }
 };
