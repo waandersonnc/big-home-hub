@@ -29,8 +29,13 @@ export default function MemberCard({ member, onUpdate }: MemberCardProps) {
                             )}
                         </Avatar>
                         <div>
-                            <h3 className="font-bold text-lg group-hover:text-primary transition-colors">
-                                {member.full_name || 'Nome Usuário'}
+                            <h3 
+                                className="font-bold text-lg group-hover:text-primary transition-colors"
+                                title={member.full_name || 'Nome Usuário'}
+                            >
+                                {(member.full_name || 'Nome Usuário').length > 22 
+                                    ? `${(member.full_name || 'Nome Usuário').substring(0, 22)}...` 
+                                    : (member.full_name || 'Nome Usuário')}
                             </h3>
                             <Badge variant="outline" className="mt-1 gap-1 py-0 px-2 h-5 text-[10px] uppercase font-bold tracking-wider">
                                 {isBroker ? <User size={10} /> : <UserCog size={10} />}

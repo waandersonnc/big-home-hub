@@ -19,6 +19,12 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { demoStore } from '@/lib/demoStore';
@@ -234,19 +240,32 @@ export default function Team() {
                                         )}
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-lg text-card-foreground group-hover:text-primary transition-colors">
-                                            {member.name || member.full_name}
-                                        </h3>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <h3 className="font-bold text-base text-card-foreground group-hover:text-primary transition-colors cursor-default">
+                                                        {(member.name || member.full_name || '').length > 18 
+                                                            ? `${(member.name || member.full_name || '').substring(0, 18)}...` 
+                                                            : (member.name || member.full_name)}
+                                                    </h3>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{member.name || member.full_name}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                         <div className="mt-1">
                                             <StatusBadge status={member.role} />
                                         </div>
                                     </div>
                                 </div>
-                                <Switch
-                                    checked={member.status === 'active'}
-                                    onCheckedChange={() => toggleStatus(member.id)}
-                                    className="data-[state=checked]:bg-primary"
-                                />
+                                {member.user_type === 'broker' && (
+                                    <Switch
+                                        checked={member.status === 'active'}
+                                        onCheckedChange={() => toggleStatus(member.id)}
+                                        className="data-[state=checked]:bg-primary"
+                                    />
+                                )}
                             </div>
 
                             <div className="space-y-3 mb-6">
