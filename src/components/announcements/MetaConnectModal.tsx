@@ -24,6 +24,11 @@ interface FacebookPage {
     access_token?: string;
 }
 
+interface FacebookPermission {
+    permission: string;
+    status: string;
+}
+
 export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     const [isOpen, setIsOpen] = useState(false);
     const [step, setStep] = useState(1); // 1: Connect, 2: Select Account, 3: Success, 4: Disconnect Confirm
@@ -76,6 +81,29 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             }
             setAccessToken(response.authResponse.accessToken);
 
+            // 1. Verify Permissions explicitly
+            try {
+                const permsInMeta = await metaService.verifyPermissions(response.authResponse.accessToken);
+                const dataPerms = permsInMeta.data || [];
+                
+                // Check missing permissions
+                if (requestLeads) {
+                    const hasPagesShow = dataPerms.some((p: FacebookPermission) => p.permission === 'pages_show_list' && p.status === 'granted');
+                    const hasLeadsRet = dataPerms.some((p: FacebookPermission) => p.permission === 'leads_retrieval' && p.status === 'granted');
+                    
+                    if (!hasPagesShow) toast.warning('Permissão "pages_show_list" não concedida. Você pode não ver suas páginas.');
+                    if (!hasLeadsRet) toast.warning('Permissão "leads_retrieval" não concedida. Leads podem não ser sincronizados.');
+                }
+                
+                if (requestMetrics) {
+                    const hasAdsRead = dataPerms.some((p: FacebookPermission) => p.permission === 'ads_read' && p.status === 'granted');
+                    if (!hasAdsRead) toast.warning('Permissão "ads_read" não concedida. Métricas não aparecerão.');
+                }
+            } catch (permErr) {
+                console.error('Erro ao verificar permissões:', permErr);
+                // We don't block flow, just warn
+            }
+
             // Fetch Data based on selection
             const promises = [];
             
@@ -89,9 +117,10 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         .catch((accError: unknown) => {
                             const msg = accError instanceof Error ? accError.message : String(accError);
                             if (msg.includes('Unsupported get request')) {
-                                toast.error('Erro de Permissão: Falha ao listar contas de anúncios. Verifique aprovação "ads_read".');
+                                toast.error('Erro de Permissão (Métricas): Verifique se você concedeu "ads_read".');
                             } else {
                                 console.error(accError);
+                                toast.error(`Erro ao buscar anúncios: ${msg}`);
                             }
                         })
                 );
@@ -103,19 +132,13 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 promises.push(
                     metaService.getPages(response.authResponse.accessToken)
                         .then(p => {
-                            if (p.length === 0) toast.info('Nenhuma página encontrada.');
+                            if (p.length === 0) toast.info('Nenhuma página encontrada. Verifique se você é Admin.');
                             setPages(p);
                         })
-                        .catch(err => {
-                            // This part of the code was added based on the user's instruction.
-                            // Note: 'required' and 'perms' variables are not defined in the provided context.
-                            // Assuming they would be defined in a real-world scenario or this is a partial change.
-                            // For now, it's commented out to maintain syntactical correctness.
-                            // const missing = required.filter(r =>
-                            //     !perms.some((p: { permission: string; status: string }) => p.permission === r && p.status === 'granted')
-                            // );
+                        .catch((err: unknown) => {
                             console.error('Erro Pages:', err);
-                            toast.error('Falha ao listar páginas.');
+                            const msg = err instanceof Error ? err.message : String(err);
+                            toast.error(`Falha ao listar páginas: ${msg}`);
                         })
                 );
             } else {
