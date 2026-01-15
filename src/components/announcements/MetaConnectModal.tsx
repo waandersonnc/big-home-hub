@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useFacebookSDK } from '@/hooks/useFacebookSDK';
-import { metaService } from '@/services/meta.service';
+import { metaService, type MetaIntegration } from '@/services/meta.service';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Loader2, Facebook, CheckCircle, AlertCircle } from 'lucide-react';
@@ -197,7 +197,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 is_active: false,
                 scope_leads: false,
                 scope_metrics: false
-            } as unknown as any); // Type assertion needed because we're clearing required fields
+            } as Omit<MetaIntegration, 'id' | 'created_at' | 'updated_at'>);
 
             toast.success('Conta desconectada com sucesso.');
             setIsOpen(false);
