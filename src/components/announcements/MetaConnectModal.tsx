@@ -153,7 +153,8 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         })
                         .catch((accError: unknown) => {
                             console.error('Erro AdAccounts:', accError);
-                            toast.error(`Falha ao buscar anúncios. Verifique as permissões.`, { duration: Infinity });
+                            const msg = accError instanceof Error ? accError.message : String(accError);
+                            toast.error(`Falha ao buscar contas de anúncios: ${msg}`, { duration: Infinity });
                         })
                 );
             }
@@ -167,7 +168,8 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         })
                         .catch((err: unknown) => {
                             console.error('Erro Pages:', err);
-                            toast.error(`Erro ao buscar páginas.`, { duration: Infinity });
+                            const msg = err instanceof Error ? err.message : String(err);
+                            toast.error(`Erro ao buscar páginas: ${msg}`, { duration: Infinity });
                         })
                 );
             }
