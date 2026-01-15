@@ -69,7 +69,8 @@ export const metaService = {
                         body: {
                             action: 'exchange_token',
                             company_id: data.company_id,
-                            access_token: data.meta_access_token
+                            access_token: data.meta_access_token,
+                            page_id: data.meta_page_id // Pass page_id to get long-lived page token
                         }
                     });
                 } catch (fnError) {

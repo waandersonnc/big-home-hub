@@ -18,7 +18,7 @@ serve(async (req: Request) => {
             Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
         );
 
-        const { action, company_id, access_token } = await req.json();
+        const { action, company_id, access_token, page_id } = await req.json();
         const FB_APP_SECRET = Deno.env.get('FACEBOOK_APP_SECRET');
         const FB_APP_ID = Deno.env.get('FACEBOOK_APP_ID');
 
@@ -126,22 +126,39 @@ serve(async (req: Request) => {
             const exData = await exRes.json();
 
             if (exData.access_token) {
-                // Update integration with new long-lived token
-                // Note: We update using supabase admin client to bypass RLS if needed, although service role has power.
-                // But we actually just want to return it or update directly.
-                // Let's update directly if company_id is provided.
+                const longLivedUserToken = exData.access_token;
+                let updates: any = {
+                    meta_access_token: longLivedUserToken,
+                    updated_at: new Date().toISOString()
+                };
+
+                // If page_id is provided, use the NEW Long-Lived User Token to fetch a Long-Lived Page Token
+                if (page_id) {
+                    try {
+                        const pageUrl = `https://graph.facebook.com/v18.0/${page_id}?fields=access_token&access_token=${longLivedUserToken}`;
+                        const pageRes = await fetch(pageUrl);
+                        const pageData = await pageRes.json();
+                        
+                        if (pageData.access_token) {
+                            updates.meta_page_access_token = pageData.access_token;
+                        }
+                    } catch (err) {
+                        console.error('Erro ao buscar token longo da página:', err);
+                    }
+                }
+
                 if (company_id) {
                     await supabase
                         .from('meta_integrations')
-                        .update({
-                            meta_access_token: exData.access_token,
-                            // If facebook returns new expiry, we could save it too
-                            updated_at: new Date().toISOString()
-                        })
+                        .update(updates)
                         .eq('company_id', company_id);
                 }
 
-                return new Response(JSON.stringify({ success: true, new_token: exData.access_token }), {
+                return new Response(JSON.stringify({ 
+                    success: true, 
+                    new_token: longLivedUserToken,
+                    page_token_updated: !!updates.meta_page_access_token 
+                }), {
                     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
                     status: 200,
                 });
