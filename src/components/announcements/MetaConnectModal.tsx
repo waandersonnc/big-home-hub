@@ -21,7 +21,12 @@ interface AdAccount {
 interface FacebookPage {
     id: string;
     name: string;
-    access_token?: string;
+    access_token: string;
+}
+
+interface FacebookBusiness {
+    id: string;
+    name: string;
 }
 
 interface FacebookPermission {
@@ -35,8 +40,10 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     const [loading, setLoading] = useState(false);
     const [adAccounts, setAdAccounts] = useState<AdAccount[]>([]);
     const [pages, setPages] = useState<FacebookPage[]>([]);
+    const [businesses, setBusinesses] = useState<FacebookBusiness[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<string>('');
     const [selectedPage, setSelectedPage] = useState<string>('');
+    const [selectedBusiness, setSelectedBusiness] = useState<string>('');
     const [accessToken, setAccessToken] = useState('');
     const [isDisconnecting, setIsDisconnecting] = useState(false);
 
@@ -69,7 +76,8 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         setLoading(true);
         try {
-            const scopes = ['public_profile', 'email'];
+            // Escopos melhorados para Gerenciamento de Negócios e Leads Offline
+            const scopes = ['public_profile', 'email', 'business_management'];
             if (requestMetrics) scopes.push('ads_read');
             if (requestLeads) scopes.push('leads_retrieval', 'pages_show_list', 'pages_read_engagement');
 
@@ -87,13 +95,14 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 const dataPerms = permsInMeta.data || [];
                 const warnings: string[] = [];
                 
-                // Check missing permissions
                 if (requestLeads) {
                     const hasPagesShow = dataPerms.some((p: FacebookPermission) => p.permission === 'pages_show_list' && p.status === 'granted');
                     const hasLeadsRet = dataPerms.some((p: FacebookPermission) => p.permission === 'leads_retrieval' && p.status === 'granted');
+                    const hasBiz = dataPerms.some((p: FacebookPermission) => p.permission === 'business_management' && p.status === 'granted');
                     
                     if (!hasPagesShow) warnings.push('Permissão "pages_show_list" não concedida.');
                     if (!hasLeadsRet) warnings.push('Permissão "leads_retrieval" não concedida.');
+                    if (!hasBiz) warnings.push('Permissão "business_management" não concedida.');
                 }
                 
                 if (requestMetrics) {
@@ -114,6 +123,13 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             // Fetch Data based on selection
             const promises = [];
             
+            // Sempre buscamos BMs para contexto
+            promises.push(
+                metaService.getBusinesses(response.authResponse.accessToken)
+                    .then(b => setBusinesses(b))
+                    .catch(e => console.error('Erro BMs:', e))
+            );
+
             if (requestMetrics) {
                 promises.push(
                     metaService.getAdAccounts(response.authResponse.accessToken)
@@ -123,16 +139,9 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         })
                         .catch((accError: unknown) => {
                             const msg = accError instanceof Error ? accError.message : String(accError);
-                            if (msg.includes('Unsupported get request')) {
-                                toast.error('Falha em Métricas: Verifique as permissões concedidas.');
-                            } else {
-                                console.error(accError);
-                                toast.error(`Erro nos anúncios: ${msg.substring(0, 50)}...`);
-                            }
+                            toast.error(`Falha ao buscar anúncios. Verifique as permissões.`);
                         })
                 );
-            } else {
-                setAdAccounts([]);
             }
 
             if (requestLeads) {
@@ -143,13 +152,10 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                             setPages(p);
                         })
                         .catch((err: unknown) => {
-                            console.error('Erro Pages:', err);
                             const msg = err instanceof Error ? err.message : String(err);
-                            toast.error(`Erro nas páginas: ${msg.substring(0, 50)}...`);
+                            toast.error(`Erro ao buscar páginas.`);
                         })
                 );
-            } else {
-                setPages([]);
             }
 
             await Promise.all(promises);
@@ -165,7 +171,6 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     };
 
     const handleSave = async () => {
-        // Validation
         if (requestMetrics && !selectedAccount) {
             toast.error('Selecione uma conta de anúncios.');
             return;
@@ -180,6 +185,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
         try {
             const account = adAccounts.find(a => a.id === selectedAccount);
             const page = pages.find(p => p.id === selectedPage);
+            const business = businesses.find(b => b.id === selectedBusiness);
             const ownerId = user?.role === 'owner' ? user.id : user?.my_owner;
 
             await metaService.saveIntegration({
@@ -189,6 +195,9 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 meta_ad_account_name: account?.name || null,
                 meta_page_id: page?.id || null,
                 meta_page_name: page?.name || null,
+                meta_page_access_token: page?.access_token || null, // TOKEN DA PÁGINA PARA O N8N
+                meta_business_id: business?.id || null,
+                meta_business_name: business?.name || null,
                 is_active: true,
                 my_owner: ownerId,
                 scope_leads: requestLeads,
@@ -217,16 +226,10 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         setLoading(true);
         try {
-            // Agora apagamos a linha do Supabase conforme solicitado
             await metaService.deleteIntegration(selectedCompanyId);
-
             toast.success('Conta removida e dados limpos com sucesso.');
             setIsOpen(false);
-            
-            // Reload para limpar o estado global da aplicação
-            setTimeout(() => {
-                window.location.reload();
-            }, 1000);
+            window.location.reload();
         } catch (error) {
             console.error(error);
             toast.error('Erro ao remover conexão');
@@ -303,13 +306,31 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                     )}
 
                     {step === 2 && (
-                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-5">
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-5 max-h-[400px] overflow-y-auto px-1">
+                            {businesses.length > 0 && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Empresa (Business Manager)</label>
+                                    <Select value={selectedBusiness} onValueChange={setSelectedBusiness}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione a BM (Opcional)..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {businesses.map((biz) => (
+                                                <SelectItem key={biz.id} value={biz.id}>
+                                                    {biz.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
                             {requestMetrics && (
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Conta de Anúncios (Para Métricas)</label>
+                                    <label className="text-sm font-medium">Conta de Anúncios (Métricas)</label>
                                     <Select value={selectedAccount} onValueChange={setSelectedAccount}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Selecione uma conta de anúncios..." />
+                                            <SelectValue placeholder="Selecione a conta de anúncios..." />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {adAccounts.map((account) => (
@@ -322,7 +343,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                                     {adAccounts.length === 0 && (
                                         <div className="p-3 bg-amber-50 text-amber-600 rounded-md text-sm flex gap-2">
                                             <AlertCircle className="h-4 w-4 mt-0.5" />
-                                            <p>Nenhuma conta encontrada ou permissão insuficiente para métricas.</p>
+                                            <p>Nenhuma conta de anúncios encontrada.</p>
                                         </div>
                                     )}
                                 </div>
@@ -330,10 +351,10 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
                             {requestLeads && (
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Página do Facebook (Para Leads)</label>
+                                    <label className="text-sm font-medium">Página do Facebook (Leads)</label>
                                     <Select value={selectedPage} onValueChange={setSelectedPage}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Selecione uma página..." />
+                                            <SelectValue placeholder="Selecione a página..." />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {pages.map((page) => (
@@ -346,7 +367,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                                     {pages.length === 0 && (
                                         <div className="p-3 bg-amber-50 text-amber-600 rounded-md text-sm flex gap-2">
                                             <AlertCircle className="h-4 w-4 mt-0.5" />
-                                            <p>Nenhuma página encontrada. Você precisa ser admin da página.</p>
+                                            <p>Nenhuma página encontrada. Verifique se é Admin.</p>
                                         </div>
                                     )}
                                 </div>

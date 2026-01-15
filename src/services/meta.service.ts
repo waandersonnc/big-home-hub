@@ -10,6 +10,9 @@ export interface MetaIntegration {
     meta_ad_account_name?: string | null;
     meta_page_id?: string | null;
     meta_page_name?: string | null;
+    meta_page_access_token?: string | null;
+    meta_business_id?: string | null;
+    meta_business_name?: string | null;
     my_owner?: string;
     is_active: boolean;
     scope_leads?: boolean;
@@ -116,6 +119,19 @@ export const metaService = {
         const { data, error } = await supabase.functions.invoke('meta-sync', {
             body: {
                 action: 'verify_permissions',
+                access_token: accessToken
+            }
+        });
+
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+        return data.data || [];
+    },
+
+    async getBusinesses(accessToken: string) {
+        const { data, error } = await supabase.functions.invoke('meta-sync', {
+            body: {
+                action: 'get_businesses',
                 access_token: accessToken
             }
         });

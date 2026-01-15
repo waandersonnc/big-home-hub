@@ -1,3 +1,4 @@
+// Supabase Edge Function: Meta Sync
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -45,6 +46,23 @@ serve(async (req: Request) => {
                 .map(b => b.toString(16).padStart(2, '0'))
                 .join('');
         };
+
+        if (action === 'get_businesses') {
+            const proof = await generateProof(access_token, FB_APP_SECRET);
+            const fbUrl = `https://graph.facebook.com/v18.0/me/businesses?fields=name,id,vertical&access_token=${access_token}&appsecret_proof=${proof}`;
+
+            const fbRes = await fetch(fbUrl);
+            const fbData = await fbRes.json();
+
+            if (fbData.error) {
+                throw new Error(fbData.error.message);
+            }
+
+            return new Response(JSON.stringify({ data: fbData.data }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            });
+        }
 
         if (action === 'get_ad_accounts') {
             // Modo Seguro: O servidor chama o Facebook usando o App Secret Proof
@@ -135,8 +153,9 @@ serve(async (req: Request) => {
             status: 200,
         });
 
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: error.message }), {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : String(error);
+        return new Response(JSON.stringify({ error: message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
