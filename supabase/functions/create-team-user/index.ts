@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     // 1. Create User in Auth (Auto-confirmed)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
       email,
-      password: password || '@Bighome2026', // Default password if not provided
+      password: password || '@Bighome123', // Default password if not provided
       email_confirm: true, // AUTO CONFIRM EMAIL
       user_metadata: {
         full_name,
