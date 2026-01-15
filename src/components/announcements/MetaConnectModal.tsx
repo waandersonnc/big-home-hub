@@ -217,9 +217,11 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>{step === 4 ? "Desconectar Conta" : "Conectar Meta Ads"}</DialogTitle>
+                    <DialogTitle>{step === 5 ? "Desconectar Conta" : step === 4 ? "Gerenciar Conexão" : "Conectar Meta Ads"}</DialogTitle>
                     <DialogDescription>
-                        {step === 4
+                        {step === 5
+                            ? "Tem certeza que deseja remover esta conexão?"
+                            : step === 4
                             ? "Gerencie a conexão da sua conta de anúncios."
                             : "Escolha quais recursos deseja integrar com o sistema."}
                     </DialogDescription>
@@ -342,6 +344,20 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
                     {step === 4 && (
                         <div className="flex flex-col items-center justify-center space-y-4 py-2">
+                            <div className="bg-green-50 p-4 rounded-full mb-2">
+                                <CheckCircle className="h-10 w-10 text-green-500" />
+                            </div>
+                            <p className="text-center font-medium text-lg">
+                                Conta Conectada
+                            </p>
+                            <p className="text-center text-sm text-muted-foreground px-4">
+                                Sua conta do Facebook está conectada. Os leads e métricas estão sendo sincronizados automaticamente.
+                            </p>
+                        </div>
+                    )}
+
+                    {step === 5 && (
+                        <div className="flex flex-col items-center justify-center space-y-4 py-2">
                             <div className="bg-red-50 p-4 rounded-full mb-2">
                                 <AlertCircle className="h-10 w-10 text-red-500" />
                             </div>
@@ -367,9 +383,30 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                     )}
 
                     {step === 4 && (
+                        <div className="flex w-full gap-2">
+                            <Button 
+                                variant="destructive" 
+                                onClick={() => setStep(5)} 
+                                disabled={loading}
+                                className="flex-1"
+                            >
+                                Desconectar
+                            </Button>
+                            <Button 
+                                variant="default" 
+                                onClick={() => setStep(1)} 
+                                disabled={loading}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                            >
+                                Reconectar
+                            </Button>
+                        </div>
+                    )}
+
+                    {step === 5 && (
                         <>
-                            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={loading}>
-                                Não, cancelar
+                            <Button variant="outline" onClick={() => setStep(4)} disabled={loading}>
+                                Cancelar
                             </Button>
                             <Button variant="destructive" onClick={handleDisconnect} disabled={loading}>
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
