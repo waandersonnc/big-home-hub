@@ -97,8 +97,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
             // 1. Verify Permissions explicitly
             try {
-                const permsInMeta = await metaService.verifyPermissions(response.authResponse.accessToken);
-                const dataPerms = permsInMeta.data || [];
+                const dataPerms = await metaService.verifyPermissions(response.authResponse.accessToken);
                 const warnings: string[] = [];
                 
                 if (requestLeads) {
@@ -119,7 +118,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 if (warnings.length > 0) {
                     toast.warning("Atenção com as permissões:", {
                         description: warnings.join(" "),
-                        duration: 6000
+                        duration: Infinity // Keep warnings visible
                     });
                 }
             } catch (permErr) {
@@ -154,7 +153,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         })
                         .catch((accError: unknown) => {
                             console.error('Erro AdAccounts:', accError);
-                            toast.error(`Falha ao buscar anúncios. Verifique as permissões.`);
+                            toast.error(`Falha ao buscar anúncios. Verifique as permissões.`, { duration: Infinity });
                         })
                 );
             }
@@ -168,7 +167,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                         })
                         .catch((err: unknown) => {
                             console.error('Erro Pages:', err);
-                            toast.error(`Erro ao buscar páginas.`);
+                            toast.error(`Erro ao buscar páginas.`, { duration: Infinity });
                         })
                 );
             }
@@ -179,7 +178,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
         } catch (error: unknown) {
             console.error('Erro no login/busca:', error);
             const msg = error instanceof Error ? error.message : String(error);
-            toast.error(msg || 'Erro ao conectar com Facebook');
+            toast.error(msg || 'Erro ao conectar com Facebook', { duration: Infinity });
         } finally {
             setLoading(false);
         }
@@ -187,15 +186,15 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
     const handleSave = async () => {
         if (requestMetrics && !selectedAccount) {
-            toast.error('Selecione uma conta de anúncios.');
+            toast.error('Selecione uma conta de anúncios.', { duration: Infinity });
             return;
         }
         if (requestLeads && !selectedPage) {
-            toast.error('Selecione uma página do Facebook.');
+            toast.error('Selecione uma página do Facebook.', { duration: Infinity });
             return;
         }
         if (!selectedCompanyId) {
-            toast.error('Nenhuma imobiliária selecionada.');
+            toast.error('Nenhuma imobiliária selecionada.', { duration: Infinity });
             return;
         }
 
@@ -236,7 +235,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         } catch (error) {
             console.error('Erro ao salvar integração:', error);
-            toast.error('Erro ao salvar integração no banco de dados.');
+            toast.error('Erro ao salvar integração no banco de dados.', { duration: Infinity });
         } finally {
             setLoading(false);
         }
@@ -253,7 +252,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             window.location.reload();
         } catch (error) {
             console.error(error);
-            toast.error('Erro ao remover conexão');
+            toast.error('Erro ao remover conexão', { duration: Infinity });
         } finally {
             setLoading(false);
         }
