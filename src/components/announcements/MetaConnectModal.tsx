@@ -57,16 +57,22 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
     // Check initial status
     useEffect(() => {
+        let isMounted = true;
         const checkStatus = async () => {
-            if (selectedCompanyId && isOpen) {
-                const integration = await metaService.getIntegration(selectedCompanyId);
-                if (integration?.is_active) {
-                    setStep(4);
+            if (selectedCompanyId && isOpen && step === 1) {
+                try {
+                    const integration = await metaService.getIntegration(selectedCompanyId);
+                    if (isMounted && integration?.is_active) {
+                        setStep(4);
+                    }
+                } catch (err) {
+                    console.error('Erro ao verificar status inicial:', err);
                 }
             }
         };
         checkStatus();
-    }, [isOpen, selectedCompanyId]);
+        return () => { isMounted = false; };
+    }, [isOpen, selectedCompanyId, step]);
 
     const handleLogin = async () => {
         if (!requestMetrics && !requestLeads) {
@@ -126,7 +132,16 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             // Sempre buscamos BMs para contexto
             promises.push(
                 metaService.getBusinesses(response.authResponse.accessToken)
-                    .then(b => setBusinesses(b))
+                    .then(b => {
+                        // Filtra duplicatas por ID para evitar que a BM apareça duas vezes
+                        const uniqueBusinesses = (b || []).reduce((acc: FacebookBusiness[], current: FacebookBusiness) => {
+                            if (!acc.find(item => item.id === current.id)) {
+                                acc.push(current);
+                            }
+                            return acc;
+                        }, []);
+                        setBusinesses(uniqueBusinesses);
+                    })
                     .catch(e => console.error('Erro BMs:', e))
             );
 
@@ -138,7 +153,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                             setAdAccounts(accounts);
                         })
                         .catch((accError: unknown) => {
-                            const msg = accError instanceof Error ? accError.message : String(accError);
+                            console.error('Erro AdAccounts:', accError);
                             toast.error(`Falha ao buscar anúncios. Verifique as permissões.`);
                         })
                 );
@@ -152,7 +167,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                             setPages(p);
                         })
                         .catch((err: unknown) => {
-                            const msg = err instanceof Error ? err.message : String(err);
+                            console.error('Erro Pages:', err);
                             toast.error(`Erro ao buscar páginas.`);
                         })
                 );
@@ -179,43 +194,49 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             toast.error('Selecione uma página do Facebook.');
             return;
         }
-        if (!selectedCompanyId) return;
+        if (!selectedCompanyId) {
+            toast.error('Nenhuma imobiliária selecionada.');
+            return;
+        }
 
         setLoading(true);
         try {
             const account = adAccounts.find(a => a.id === selectedAccount);
             const page = pages.find(p => p.id === selectedPage);
             const business = businesses.find(b => b.id === selectedBusiness);
-            const ownerId = user?.role === 'owner' ? user.id : user?.my_owner;
+            const ownerId = user?.role === 'owner' ? user.id : (user?.my_owner || user?.id);
 
-            await metaService.saveIntegration({
+            // Verificação de segurança: garantir que temos os dados necessários
+            const payload = {
                 company_id: selectedCompanyId,
                 meta_access_token: accessToken,
-                meta_ad_account_id: account?.account_id || null, 
+                meta_ad_account_id: account?.id || account?.account_id || null, // Preferencialmente o ID no formato act_...
                 meta_ad_account_name: account?.name || null,
                 meta_page_id: page?.id || null,
                 meta_page_name: page?.name || null,
-                meta_page_access_token: page?.access_token || null, // TOKEN DA PÁGINA PARA O N8N
+                meta_page_access_token: page?.access_token || null, // TOKEN DA PÁGINA PARA O N8N (CRUCIAL PARA LEADS)
                 meta_business_id: business?.id || null,
                 meta_business_name: business?.name || null,
                 is_active: true,
                 my_owner: ownerId,
                 scope_leads: requestLeads,
                 scope_metrics: requestMetrics
-            });
+            };
+
+            await metaService.saveIntegration(payload);
 
             setStep(3);
             toast.success('Conta Meta conectada com sucesso!');
 
+            // Aguarda um pouco para mostrar o sucesso antes de recarregar
             setTimeout(() => {
                 setIsOpen(false);
-                setStep(1);
                 window.location.reload();
-            }, 2000);
+            }, 1500);
 
         } catch (error) {
-            console.error(error);
-            toast.error('Erro ao salvar integração');
+            console.error('Erro ao salvar integração:', error);
+            toast.error('Erro ao salvar integração no banco de dados.');
         } finally {
             setLoading(false);
         }
