@@ -16,7 +16,9 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     const [step, setStep] = useState(1); // 1: Connect, 2: Select Account, 3: Success, 4: Disconnect Confirm
     const [loading, setLoading] = useState(false);
     const [adAccounts, setAdAccounts] = useState<any[]>([]);
+    const [pages, setPages] = useState<any[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<string>('');
+    const [selectedPage, setSelectedPage] = useState<string>('');
     const [accessToken, setAccessToken] = useState('');
     const [isDisconnecting, setIsDisconnecting] = useState(false);
 
@@ -34,7 +36,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             if (selectedCompanyId && isOpen) {
                 const integration = await metaService.getIntegration(selectedCompanyId);
                 if (integration?.is_active) {
-                    setStep(4); // Go directly to disconnect confirmation if already connected
+                    setStep(4);
                 }
             }
         };
@@ -49,7 +51,6 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
 
         setLoading(true);
         try {
-            // Construct scope dynamically based on user selection
             const scopes = ['public_profile', 'email'];
             if (requestMetrics) scopes.push('ads_read');
             if (requestLeads) scopes.push('leads_retrieval', 'pages_show_list', 'pages_read_engagement');
@@ -62,57 +63,42 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
             }
             setAccessToken(response.authResponse.accessToken);
 
-            // Verificar permissões (backend seguro)
-            try {
-                const perms = await metaService.verifyPermissions(response.authResponse.accessToken);
-
-                // Build required list based on selection
-                const required = [];
-                if (requestMetrics) required.push('ads_read');
-                if (requestLeads) required.push('leads_retrieval');
-
-                const missing = required.filter(r =>
-                    !perms.some((p: any) => p.permission === r && p.status === 'granted')
-                );
-
-                if (missing.length > 0) {
-                    console.warn('Permissões faltando:', missing);
-
-                    if (missing.includes('ads_read') && requestMetrics) {
-                        toast.error('Erro Crítico: A permissão "ads_read" é necessária para ver métricas. Verifique se o App está aprovado.');
-                        // Returning here blocks everything if critical perm for requested feature is missing
-                        return;
-                    }
-
-                    if (missing.includes('leads_retrieval') && requestLeads) {
-                        toast.warning(`Atenção: A permissão "leads_retrieval" não foi concedida.`);
-                    }
-                }
-            } catch (permErr) {
-                console.error('Erro ao verificar permissões:', permErr);
-            }
-
-            // Only fetch ad accounts if metrics were requested
+            // Fetch Data based on selection
+            const promises = [];
+            
             if (requestMetrics) {
-                try {
-                    const accounts = await metaService.getAdAccounts(response.authResponse.accessToken);
-
-                    if (accounts.length === 0) {
-                        toast.info('Nenhuma conta de anúncios foi encontrada para este usuário.');
-                    }
-                    setAdAccounts(accounts);
-                } catch (accError: any) {
-                    const msg = accError.message || '';
-                    if (msg.includes('Unsupported get request')) {
-                        toast.error('Erro de Permissão: Falha ao listar contas de anúncios. Verifique aprovação "ads_read".');
-                    } else {
-                        console.error(accError);
-                    }
-                }
+                promises.push(
+                    metaService.getAdAccounts(response.authResponse.accessToken)
+                        .then(accounts => {
+                            if (accounts.length === 0) toast.info('Nenhuma conta de anúncios encontrada.');
+                            setAdAccounts(accounts);
+                        })
+                        .catch(err => {
+                            console.error('Erro Ads:', err);
+                            toast.error('Falha ao listar contas de anúncios.');
+                        })
+                );
             } else {
                 setAdAccounts([]);
             }
 
+            if (requestLeads) {
+                promises.push(
+                    metaService.getPages(response.authResponse.accessToken)
+                        .then(p => {
+                            if (p.length === 0) toast.info('Nenhuma página encontrada.');
+                            setPages(p);
+                        })
+                        .catch(err => {
+                            console.error('Erro Pages:', err);
+                            toast.error('Falha ao listar páginas.');
+                        })
+                );
+            } else {
+                setPages([]);
+            }
+
+            await Promise.all(promises);
             setStep(2);
 
         } catch (error: any) {
@@ -124,22 +110,30 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
     };
 
     const handleSave = async () => {
-        // Validation: If metrics requested, account must be selected.
-        if (requestMetrics && !selectedAccount) return;
+        // Validation
+        if (requestMetrics && !selectedAccount) {
+            toast.error('Selecione uma conta de anúncios.');
+            return;
+        }
+        if (requestLeads && !selectedPage) {
+            toast.error('Selecione uma página do Facebook.');
+            return;
+        }
         if (!selectedCompanyId) return;
 
         setLoading(true);
         try {
-            // User is already available from component scope
-
             const account = adAccounts.find(a => a.id === selectedAccount);
+            const page = pages.find(p => p.id === selectedPage);
             const ownerId = user?.role === 'owner' ? user.id : user?.my_owner;
 
             await metaService.saveIntegration({
                 company_id: selectedCompanyId,
                 meta_access_token: accessToken,
-                meta_ad_account_id: account?.account_id || null,
+                meta_ad_account_id: account?.account_id || null, // Note: Use account_id (act_XXX) not id
                 meta_ad_account_name: account?.name || null,
+                meta_page_id: page?.id || null,
+                meta_page_name: page?.name || null,
                 is_active: true,
                 my_owner: ownerId,
                 scope_leads: requestLeads,
@@ -173,6 +167,8 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                 meta_access_token: '',
                 meta_ad_account_id: null,
                 meta_ad_account_name: null,
+                meta_page_id: null,
+                meta_page_name: null,
                 is_active: false,
                 scope_leads: false,
                 scope_metrics: false
@@ -255,13 +251,13 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                     )}
 
                     {step === 2 && (
-                        <div className="space-y-4">
-                            {requestMetrics ? (
+                        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-5">
+                            {requestMetrics && (
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Selecione a Conta de Anúncios</label>
+                                    <label className="text-sm font-medium">Conta de Anúncios (Para Métricas)</label>
                                     <Select value={selectedAccount} onValueChange={setSelectedAccount}>
                                         <SelectTrigger>
-                                            <SelectValue placeholder="Selecione uma conta..." />
+                                            <SelectValue placeholder="Selecione uma conta de anúncios..." />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {adAccounts.map((account) => (
@@ -278,16 +274,35 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                                         </div>
                                     )}
                                 </div>
-                            ) : (
-                                <div className="p-4 bg-green-50 text-green-700 rounded-lg flex gap-3">
-                                    <CheckCircle className="h-5 w-5 mt-0.5 shrink-0" />
-                                    <div>
-                                        <p className="font-medium">Integração de Leads Selecionada</p>
-                                        <p className="text-sm mt-1">
-                                            Você optou por conectar apenas a gestão de leads.
-                                            Não será necessário selecionar uma conta de anúncios específica para métricas.
-                                        </p>
-                                    </div>
+                            )}
+
+                            {requestLeads && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium">Página do Facebook (Para Leads)</label>
+                                    <Select value={selectedPage} onValueChange={setSelectedPage}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Selecione uma página..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {pages.map((page) => (
+                                                <SelectItem key={page.id} value={page.id}>
+                                                    {page.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {pages.length === 0 && (
+                                        <div className="p-3 bg-amber-50 text-amber-600 rounded-md text-sm flex gap-2">
+                                            <AlertCircle className="h-4 w-4 mt-0.5" />
+                                            <p>Nenhuma página encontrada. Você precisa ser admin da página.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {!requestMetrics && !requestLeads && (
+                                <div className="p-3 bg-red-50 text-red-600 rounded-md text-sm">
+                                    Erro: Nenhuma opção selecionada.
                                 </div>
                             )}
                         </div>
@@ -319,7 +334,7 @@ export function MetaConnectModal({ children }: { children: React.ReactNode }) {
                     {step === 2 && (
                         <Button
                             onClick={handleSave}
-                            disabled={loading || (requestMetrics && !selectedAccount)}
+                            disabled={loading || (requestMetrics && !selectedAccount) || (requestLeads && !selectedPage)}
                         >
                             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {requestMetrics ? 'Salvar e Sincronizar' : 'Confirmar Conexão'}

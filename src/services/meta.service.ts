@@ -6,8 +6,10 @@ export interface MetaIntegration {
     company_id: string;
     meta_user_id?: string;
     meta_access_token: string;
-    meta_ad_account_id?: string;
-    meta_ad_account_name?: string;
+    meta_ad_account_id?: string | null;
+    meta_ad_account_name?: string | null;
+    meta_page_id?: string | null;
+    meta_page_name?: string | null;
     my_owner?: string;
     is_active: boolean;
     scope_leads?: boolean;
@@ -15,6 +17,19 @@ export interface MetaIntegration {
 }
 
 export const metaService = {
+    async getPages(accessToken: string) {
+        const { data, error } = await supabase.functions.invoke('meta-sync', {
+            body: {
+                action: 'get_pages',
+                access_token: accessToken
+            }
+        });
+
+        if (error) throw error;
+        if (data.error) throw new Error(data.error);
+        return data.data || [];
+    },
+
     async saveIntegration(data: Omit<MetaIntegration, 'id' | 'created_at' | 'updated_at'>) {
         try {
             // Check if integration exists

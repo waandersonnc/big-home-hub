@@ -65,6 +65,24 @@ serve(async (req: Request) => {
             });
         }
 
+        if (action === 'get_pages') {
+            const proof = await generateProof(access_token, FB_APP_SECRET);
+            // Fetch pages with access token
+            const fbUrl = `https://graph.facebook.com/v18.0/me/accounts?fields=name,id,access_token,picture&access_token=${access_token}&appsecret_proof=${proof}`;
+
+            const fbRes = await fetch(fbUrl);
+            const fbData = await fbRes.json();
+
+            if (fbData.error) {
+                throw new Error(fbData.error.message);
+            }
+
+            return new Response(JSON.stringify({ data: fbData.data }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                status: 200,
+            });
+        }
+
         if (action === 'verify_permissions') {
             const proof = await generateProof(access_token, FB_APP_SECRET);
             const fbUrl = `https://graph.facebook.com/v18.0/me/permissions?access_token=${access_token}&appsecret_proof=${proof}`;
