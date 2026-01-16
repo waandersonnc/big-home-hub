@@ -64,8 +64,11 @@ export default function Team() {
             if (companyId) {
                 const [managers, brokers] = await Promise.all([
                     teamService.listManagers(companyId),
-                    teamService.listBrokers(companyId)
+                    teamService.listBrokers(companyId) // Ensure this returns quer_lead or modify the service too?
                 ]);
+                // We need to fetch quer_lead manually if teamService doesn't return it yet, 
+                // OR we update teamService. But for now I'll do a direct patch/fetch here or assume teamService returns * from brokers.
+                // team.service.ts does `select('*')`, so quer_lead should be there!
 
                 // Fetch lead counts for each member in this specific company
                 const leadCounts: Record<string, number> = {};
@@ -116,6 +119,7 @@ export default function Team() {
                     status: (u.active === false ? 'inactive' : 'active'),
                     user_type: 'broker',
                     photo_url: u.avatar_url || null,
+                    quer_lead: u.quer_lead // Map the database column
                 }));
 
                 setMembers([...normalizedManagers, ...normalizedBrokers]);
@@ -147,10 +151,38 @@ export default function Team() {
         return matchesTab && matchesSearch;
     });
 
-    const toggleStatus = (id: string) => {
+    const toggleStatus = async (id: string, currentStatus: string) => {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        const newActiveState = newStatus === 'active';
+
+        // Optimistic update
         setMembers(members.map((m) =>
-            m.id === id ? { ...m, status: m.status === 'active' ? 'inactive' : 'active' } : m
+            m.id === id ? { ...m, status: newStatus } : m
         ));
+
+        try {
+            const { error } = await supabase
+                .from('brokers')
+                .update({ active: newActiveState })
+                .eq('id', id);
+
+            if (error) throw error;
+            
+            toast({
+                title: newActiveState ? "Membro ativado" : "Membro desativado",
+                duration: 2000
+            });
+        } catch (error) {
+            console.error('Error toggling status:', error);
+            // Revert on error
+            setMembers(members.map((m) =>
+                m.id === id ? { ...m, status: currentStatus } : m
+            ));
+            toast({
+                title: "Erro ao atualizar status",
+                variant: "destructive"
+            });
+        }
     };
 
     const tabs: { label: string; value: TabFilter }[] = [
@@ -260,11 +292,16 @@ export default function Team() {
                                     </div>
                                 </div>
                                 {member.user_type === 'broker' && (
-                                    <Switch
-                                        checked={member.status === 'active'}
-                                        onCheckedChange={() => toggleStatus(member.id)}
-                                        className="data-[state=checked]:bg-primary"
-                                    />
+                                    <div className="flex flex-col items-end gap-1">
+                                         <Switch
+                                            checked={member.status === 'active'}
+                                            onCheckedChange={() => toggleStatus(member.id, member.status)}
+                                            className="data-[state=checked]:bg-primary"
+                                        />
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
+                                            {member.status === 'active' ? 'Ativo' : 'Inativo'}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
 

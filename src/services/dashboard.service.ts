@@ -1058,7 +1058,29 @@ export const dashboardService = {
             if (error) throw error;
             return { success: true };
         } catch (error) {
-            logger.error('Erro em updateLeadInteraction:', (error as Error).message);
+            return { success: false, error: (error as Error).message };
+        }
+    },
+
+    /**
+     * Atribui um lead a um corretor
+     */
+    async assignLeadToBroker(leadId: string, brokerId: string, managerId: string | null) {
+        try {
+            const { error } = await supabase
+                .from('leads')
+                .update({
+                    my_broker: brokerId,
+                    my_manager: managerId, // Mantenha o manager se houver
+                    stage: 'em atendimento', // Muda o stage conforme solicitado
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', leadId);
+
+            if (error) throw error;
+            return { success: true };
+        } catch (error) {
+            logger.error('Erro em assignLeadToBroker:', (error as Error).message);
             return { success: false, error: (error as Error).message };
         }
     }

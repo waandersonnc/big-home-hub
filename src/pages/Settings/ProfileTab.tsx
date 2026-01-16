@@ -8,8 +8,11 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 
+import { useRole } from '@/hooks/useAuth';
+
 export const ProfileTab: React.FC = () => {
     const { user, refreshUser } = useAuthContext();
+    const { role } = useRole();
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
@@ -19,29 +22,40 @@ export const ProfileTab: React.FC = () => {
         avatar_url: ''
     });
 
+
+
+    const getTableName = React.useCallback(() => {
+        if (role === 'manager') return 'managers';
+        if (role === 'broker') return 'brokers';
+        return 'owners';
+    }, [role]);
+
     useEffect(() => {
-        if (user) {
+        const loadUserData = async () => {
+            if (!user || !role) return;
+
+            const tableName = getTableName();
+            
+            // Build query based on table - managers/brokers might not have 'document'
+            const query = supabase.from(tableName).select('*').eq('id', user.id).single();
+    
+            const { data } = await query;
+    
+            if (data) {
+                setFormData({
+                    name: data.name || data.full_name || '',
+                    email: data.email || '',
+                    phone: data.phone || '',
+                    document: data.document || data.cpf || '', // Handle varied column names
+                    avatar_url: data.avatar_url || ''
+                });
+            }
+        };
+
+        if (user && role) {
             loadUserData();
         }
-    }, [user]);
-
-    const loadUserData = async () => {
-        const { data, error } = await supabase
-            .from('owners')
-            .select('name, email, phone, document, avatar_url')
-            .eq('id', user?.id)
-            .single();
-
-        if (data) {
-            setFormData({
-                name: data.name || '',
-                email: data.email || '',
-                phone: data.phone || '',
-                document: data.document || '',
-                avatar_url: data.avatar_url || ''
-            });
-        }
-    };
+    }, [user, role, getTableName]);
 
     const handlePhoneMask = (value: string) => {
         return value
@@ -69,22 +83,31 @@ export const ProfileTab: React.FC = () => {
 
         setLoading(true);
         try {
+            const tableName = getTableName();
+            
+            const updateData: Record<string, string | undefined> = {
+                name: formData.name,
+                phone: formData.phone,
+                updated_at: new Date().toISOString()
+            };
+
+            // Only add document/cpf if it's relevant or table supports it
+            if (tableName === 'owners') {
+                updateData.document = formData.document;
+            }
+
             const { error } = await supabase
-                .from('owners')
-                .update({
-                    name: formData.name,
-                    phone: formData.phone,
-                    document: formData.document,
-                    updated_at: new Date().toISOString()
-                })
+                .from(tableName)
+                .update(updateData)
                 .eq('id', user?.id);
 
             if (error) throw error;
 
             toast.success('Pefil atualizado com sucesso!');
             await refreshUser();
-        } catch (error: any) {
-            toast.error('Erro ao atualizar perfil: ' + error.message);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+            toast.error('Erro ao atualizar perfil: ' + errorMessage);
         } finally {
             setLoading(false);
         }
