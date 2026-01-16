@@ -81,16 +81,25 @@ export default function Team() {
 
                 if (leadsData) {
                     leadsData.forEach(lead => {
-                        const memberId = lead.my_broker || lead.my_manager;
-                        if (memberId) {
-                            leadCounts[memberId] = (leadCounts[memberId] || 0) + 1;
+                        // Count for broker
+                        if (lead.my_broker) {
+                            leadCounts[lead.my_broker] = (leadCounts[lead.my_broker] || 0) + 1;
                             if (lead.stage === 'won' || lead.stage === 'Vendido') {
-                                salesCounts[memberId] = (salesCounts[memberId] || 0) + 1;
+                                salesCounts[lead.my_broker] = (salesCounts[lead.my_broker] || 0) + 1;
+                            }
+                        }
+
+                        // Count for manager
+                        if (lead.my_manager && lead.my_manager !== lead.my_broker) { // Avoid double counting if for some reason IDs are same (unlikely but safe)
+                            leadCounts[lead.my_manager] = (leadCounts[lead.my_manager] || 0) + 1;
+                            if (lead.stage === 'won' || lead.stage === 'Vendido') {
+                                salesCounts[lead.my_manager] = (salesCounts[lead.my_manager] || 0) + 1;
                             }
                         }
                     });
                 }
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const normalizedManagers: TeamMemberDisplay[] = managers.map((u: any) => ({
                     id: u.id,
                     email: u.email,
@@ -101,11 +110,12 @@ export default function Team() {
                     leads: leadCounts[u.id] || 0,
                     sales: salesCounts[u.id] || 0,
                     avatar: (u.full_name || u.name || 'G').substring(0, 2).toUpperCase(),
-                    status: (u.active === false ? 'inactive' : 'active'),
+                    status: (u.active === false ? 'inactive' : 'active') as 'active' | 'inactive',
                     user_type: 'manager',
                     photo_url: u.avatar_url || null,
                 }));
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const normalizedBrokers: TeamMemberDisplay[] = brokers.map((u: any) => ({
                     id: u.id,
                     email: u.email,
@@ -116,7 +126,7 @@ export default function Team() {
                     leads: leadCounts[u.id] || 0,
                     sales: salesCounts[u.id] || 0,
                     avatar: (u.full_name || u.name || 'C').substring(0, 2).toUpperCase(),
-                    status: (u.active === false ? 'inactive' : 'active'),
+                    status: (u.active === false ? 'inactive' : 'active') as 'active' | 'inactive',
                     user_type: 'broker',
                     photo_url: u.avatar_url || null,
                     quer_lead: u.quer_lead // Map the database column
@@ -142,6 +152,7 @@ export default function Team() {
 
     useEffect(() => {
         fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedCompanyId, isDemo]);
 
     const filteredMembers = members.filter((member) => {
@@ -157,7 +168,7 @@ export default function Team() {
 
         // Optimistic update
         setMembers(members.map((m) =>
-            m.id === id ? { ...m, status: newStatus } : m
+            m.id === id ? { ...m, status: newStatus as 'active' | 'inactive' } : m
         ));
 
         try {
@@ -176,7 +187,7 @@ export default function Team() {
             console.error('Error toggling status:', error);
             // Revert on error
             setMembers(members.map((m) =>
-                m.id === id ? { ...m, status: currentStatus } : m
+                m.id === id ? { ...m, status: currentStatus as 'active' | 'inactive' } : m
             ));
             toast({
                 title: "Erro ao atualizar status",

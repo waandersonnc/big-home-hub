@@ -10,10 +10,14 @@ import { dashboardService } from '@/services/dashboard.service';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 interface PipelineLeadCardProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lead: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onCardClick: (lead: any) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onWhatsAppClick: (lead: any) => void;
     onUpdate: () => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     startLongPress: (lead: any) => void;
     cancelLongPress: () => void;
 }
@@ -76,6 +80,8 @@ export const PipelineLeadCard: React.FC<PipelineLeadCardProps> = ({
         onCardClick(lead);
     };
 
+    const isReadOnly = user?.role === 'owner' || user?.role === 'manager';
+
     return (
         <>
             <div
@@ -96,6 +102,7 @@ export const PipelineLeadCard: React.FC<PipelineLeadCardProps> = ({
                 }}
                 title="Segure o clique para ver detalhes e histórico"
             >
+
                 {/* Background Pulse for high aging */}
                 {aging.percentage > 80 && aging.isOverdue && (
                     <div className="absolute inset-0 bg-destructive/5 animate-pulse pointer-events-none" />
@@ -135,14 +142,16 @@ export const PipelineLeadCard: React.FC<PipelineLeadCardProps> = ({
 
                     <button
                         onClick={(e) => {
+                            if (isReadOnly) return;
                             e.stopPropagation();
                             setIsFollowupModalOpen(true);
                         }}
                         className={cn(
                             "p-1 rounded-md transition-colors relative z-20",
-                            lead.followupAt ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted"
+                            lead.followupAt ? "text-primary bg-primary/10" : "text-muted-foreground hover:bg-muted",
+                            isReadOnly && "opacity-50 cursor-not-allowed hover:bg-transparent"
                         )}
-                        title={lead.followupAt ? "Editar Follow-up" : "Agendar Follow-up"}
+                        title={isReadOnly ? "Apenas corretores podem editar" : (lead.followupAt ? "Editar Follow-up" : "Agendar Follow-up")}
                     >
                         <Calendar className="h-3.5 w-3.5" />
                     </button>

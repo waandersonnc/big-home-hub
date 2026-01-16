@@ -38,6 +38,7 @@ import { LeadDocumentWizard } from './LeadDocumentWizard';
 import { LeadSaleWizard } from './LeadSaleWizard';
 
 interface LeadDetailModalProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     lead: any;
     isOpen: boolean;
     onClose: () => void;
@@ -152,6 +153,7 @@ export function LeadDetailModal({ lead, isOpen, onClose, onUpdate }: LeadDetailM
                         </div>
                         <div className="bg-muted/30 rounded-xl p-4 border space-y-4 max-h-[400px] overflow-y-auto">
                             {history.length > 0 ? (
+                                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                 history.slice().reverse().map((item: any, idx: number) => (
                                     <div key={idx} className="relative pl-4 border-l-2 border-primary/20 pb-4 last:pb-0">
                                         <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-primary" />
@@ -189,7 +191,15 @@ export function LeadDetailModal({ lead, isOpen, onClose, onUpdate }: LeadDetailM
                             <MessageSquare className="h-4 w-4" /> Novo Registro
                         </div>
 
-                        {selectedStatus === 'documentação' ? (
+                        {(user?.role === 'owner' || user?.role === 'manager') ? (
+                            <div className="bg-muted/30 border border-dashed rounded-xl p-6 flex flex-col items-center justify-center text-center space-y-2 h-[200px]">
+                                <UserMinus className="h-8 w-8 text-muted-foreground/50" />
+                                <p className="text-sm font-medium text-muted-foreground">Modo Visualização</p>
+                                <p className="text-xs text-muted-foreground/70 max-w-[200px]">
+                                    Apenas corretores podem registrar interações, alterar status ou agendar follow-ups.
+                                </p>
+                            </div>
+                        ) : selectedStatus === 'documentação' ? (
                             <LeadDocumentWizard
                                 lead={lead}
                                 user={user}

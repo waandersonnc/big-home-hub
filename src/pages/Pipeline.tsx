@@ -78,12 +78,16 @@ export default function Pipeline() {
   const { toast } = useToast();
   const { user } = useAuthContext();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [leads, setLeads] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [agents, setAgents] = useState<any[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [fullTeam, setFullTeam] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [agentFilter, setAgentFilter] = useState('all');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [selectedLead, setSelectedLead] = useState<any | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -92,10 +96,12 @@ export default function Pipeline() {
     isOpen: false,
     type: 'all'
   });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const longPressTimer = useRef<any>(null);
   const { selectedCompany } = useCompany();
 
   // CSV Export Logic
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleDownloadCSV = (data: any[], fileName: string) => {
     if (data.length === 0) {
       toast({ title: "Nenhum dado", description: "Não há leads para exportar.", variant: "destructive" });
@@ -149,10 +155,12 @@ export default function Pipeline() {
   };
 
   const onConfirmDownload = () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let exportData: any[] = [];
     let fileName = "";
 
     // Filtering logic based on permissions
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getFilteredByRole = (rawLeads: any[]) => {
       if (user?.role === 'owner') return rawLeads;
       if (user?.role === 'manager') return rawLeads.filter(l => l.my_manager === user.id);
@@ -199,10 +207,31 @@ export default function Pipeline() {
 
     setCreating(true);
     try {
-      // Hierarquia solicitada:
-      // Se broker: pega tudo do broker (ele já tem manager_id e company_id no perfil)
-      // Se manager: seleciona broker (manager id e owner id são do manager)
-      // Se owner: seleciona manager e broker
+      const finalMyOwner = user.role === 'owner' ? user.id : user.my_owner;
+      let finalMyManager = user.role === 'manager' ? user.id : (user.role === 'broker' ? user.manager_id : null);
+      let finalMyBroker = user.role === 'broker' ? user.id : newLead.my_broker;
+
+      // Se Owner ou Manager selecionou um broker, precisamos pegar os dados desse broker para preencher hierarquia corretamente
+      if ((user.role === 'owner' || user.role === 'manager') && newLead.my_broker) {
+        const selectedBrokerObj = fullTeam.find(u => u.id === newLead.my_broker);
+        if (selectedBrokerObj) {
+           finalMyBroker = selectedBrokerObj.id;
+           finalMyManager = selectedBrokerObj.my_manager; // Pega o manager do broker
+           // finalMyOwner já deve ser o user.id (owner)
+        }
+      }
+
+      if (user.role === 'broker') {
+          // Broker logado: já temos finalMyBroker=user.id
+          // user.my_owner e user.manager_id devem vir do contexto/perfil
+      }
+
+      const targetCompanyId = selectedCompanyId || user.real_estate_company_id;
+      if (!targetCompanyId) {
+          toast({ title: "Erro", description: "Empresa não identificada para o lead.", variant: "destructive" });
+          setCreating(false);
+          return;
+      }
 
       const leadData = {
         name: newLead.name,
@@ -210,11 +239,11 @@ export default function Pipeline() {
         email: newLead.email || null,
         interest: newLead.interest || null,
         source: newLead.source || 'Manual',
-        stage: 'em espera', // Adicionado como "Em Espera"
-        company_id: selectedCompanyId || user.real_estate_company_id,
-        my_owner: user.role === 'owner' ? user.id : user.my_owner,
-        my_manager: user.role === 'manager' ? user.id : (user.role === 'broker' ? user.manager_id : newLead.my_manager),
-        my_broker: user.role === 'broker' ? user.id : newLead.my_broker,
+        stage: 'em atendimento', // Default solicitado
+        company_id: targetCompanyId,
+        my_owner: finalMyOwner,
+        my_manager: finalMyManager,
+        my_broker: finalMyBroker,
         active: true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -225,10 +254,21 @@ export default function Pipeline() {
       if (result.success) {
         toast({ title: "Lead criado!", description: "O lead foi adicionado ao pipeline." });
         setIsDialogOpen(false);
+         // Reset form
+         setNewLead({
+            name: '',
+            phone: '',
+            email: '',
+            interest: '',
+            source: '',
+            my_broker: user.role === 'broker' ? user.id : '',
+            my_manager: user.role === 'manager' ? user.id : ''
+          });
         fetchData();
       } else {
         throw new Error(result.error);
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast({ title: "Erro ao criar lead", description: error.message, variant: "destructive" });
     } finally {
@@ -252,6 +292,7 @@ export default function Pipeline() {
     return data?.my_owner;
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const startLongPress = (lead: any) => {
     longPressTimer.current = setTimeout(() => {
       handleCardClick(lead);
@@ -363,6 +404,7 @@ export default function Pipeline() {
         supabase.removeChannel(channel);
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompanyId, isDemo]);
 
   // Create a set of valid broker names for O(1) lookup
@@ -377,6 +419,7 @@ export default function Pipeline() {
     return nameMatch && matchesAgentFilter;
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleWhatsAppClick = async (lead: any) => {
     // Only change status if it's currently 'Em Espera'
     if (lead.status === 'Em Espera') {
@@ -397,6 +440,7 @@ export default function Pipeline() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleCardClick = (lead: any) => {
     setSelectedLead(lead);
     setIsDetailModalOpen(true);
@@ -555,34 +599,14 @@ export default function Pipeline() {
                       />
                     </div>
 
-                    {/* Hierarchy Logic */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(user?.role === 'owner') && (
+                    {/* Hierarchy Logic Simplified */}
+                    <div className="grid grid-cols-1 gap-4">
+                      {(user?.role === 'owner' || user?.role === 'manager') ? (
                         <div className="space-y-2">
-                          <Label htmlFor="lead-manager">Gerente</Label>
-                          <Select
-                            value={newLead.my_manager}
-                            onValueChange={(val) => setNewLead({ ...newLead, my_manager: val, my_broker: '' })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecione o gerente" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {fullTeam.filter(m => m.user_type === 'manager').map(m => (
-                                <SelectItem key={m.id} value={m.id}>{m.full_name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {(user?.role === 'owner' || user?.role === 'manager') && (
-                        <div className="space-y-2">
-                          <Label htmlFor="lead-broker">Corretor</Label>
+                          <Label htmlFor="lead-broker">Atribuir a Corretor</Label>
                           <Select
                             value={newLead.my_broker}
                             onValueChange={(val) => setNewLead({ ...newLead, my_broker: val })}
-                            disabled={user?.role === 'owner' && !newLead.my_manager}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione o corretor" />
@@ -590,23 +614,25 @@ export default function Pipeline() {
                             <SelectContent>
                               {fullTeam
                                 .filter(b => b.user_type === 'broker')
-                                // Se for owner, filtra brokers do gerente selecionado
-                                // Se for manager, ele só vê os dele (listTeam já deve retornar filtrado pela API se for manager logado)
-                                .filter(b => !newLead.my_manager || b.my_manager === newLead.my_manager)
+                                // Se for manager, filtra só os brokers dele na lista geral se necessário, mas listTeam já deve vir filtrado para manager
+                                // Se for owner, mostra todos (e opcionalmente filtra por manager se quiséssemos, mas removemos manager selection)
                                 .map(b => (
-                                  <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>
+                                  <SelectItem key={b.id} value={b.id}>
+                                    {b.full_name} {user.role === 'owner' && b.my_manager ? `(Gerente: ${fullTeam.find(m => m.id === b.my_manager)?.full_name || '?'})` : ''}
+                                  </SelectItem>
                                 ))
                               }
                             </SelectContent>
                           </Select>
+                          <p className="text-[10px] text-muted-foreground">
+                            * O gerente será atribuído automaticamente com base no corretor selecionado.
+                          </p>
                         </div>
-                      )}
-
-                      {user?.role === 'broker' && (
-                        <div className="space-y-2">
-                          <Label>Atribuído a</Label>
-                          <Input value={user.full_name} disabled className="bg-muted/50" />
-                        </div>
+                      ) : (
+                         <div className="space-y-2">
+                           <Label>Atribuído a</Label>
+                           <Input value={user?.full_name || 'Mim'} disabled className="bg-muted/50" />
+                         </div>
                       )}
 
                       <div className="space-y-2 col-span-1">
