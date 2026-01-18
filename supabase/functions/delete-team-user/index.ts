@@ -1,5 +1,5 @@
 
-// @ts-ignore
+// @ts-expect-error: Missing Deno type definitions
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
@@ -7,20 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// @ts-ignore
+// @ts-expect-error: Missing Deno type definitions
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabaseClient = createClient(
-      // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    )
+      const supabaseClient = createClient(
+        // @ts-expect-error: Missing Deno type definitions
+        Deno.env.get('SUPABASE_URL') ?? '',
+        // @ts-expect-error: Missing Deno type definitions
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      )
 
     // Check auth
     const {
@@ -39,9 +39,9 @@ Deno.serve(async (req: Request) => {
 
     // Initialize Admin Client
     const supabaseAdmin = createClient(
-      // @ts-ignore
+      // @ts-expect-error: Missing Deno type definitions
       Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
+      // @ts-expect-error: Missing Deno type definitions
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
