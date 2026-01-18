@@ -305,7 +305,7 @@ export default function Pipeline() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchData = async (showLoading = true) => {
     if (!isDemo && !selectedCompanyId) {
       setLeads([]);
       setAgents([]);
@@ -314,7 +314,7 @@ export default function Pipeline() {
       return;
     }
 
-    setLoading(true);
+    if (showLoading) setLoading(true);
     try {
       const companyId = selectedCompanyId || (isDemo ? 'f9b0b936-67f4-4ea0-8c13-b7fb2a9532c3' : null);
 
@@ -395,7 +395,7 @@ export default function Pipeline() {
             filter: `company_id=eq.${selectedCompanyId}`
           },
           (payload) => {
-            fetchData();
+            fetchData(false);
           }
         )
         .subscribe();
