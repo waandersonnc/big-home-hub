@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Mail, Phone, Users as UsersIcon, TrendingUp } from 'lucide-react';
+import { Plus, Search, Mail, Phone, Users as UsersIcon, TrendingUp, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,16 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
     Select,
     SelectContent,
@@ -48,6 +58,8 @@ export default function Team() {
     const [members, setMembers] = useState<TeamMemberDisplay[]>([]);
     const [loading, setLoading] = useState(true);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [brokerToDelete, setBrokerToDelete] = useState<string | null>(null);
 
     const fetchData = async () => {
         if (!selectedCompanyId && !isDemo) {
@@ -196,6 +208,34 @@ export default function Team() {
         }
     };
 
+    const handleDeleteClick = (id: string) => {
+        setBrokerToDelete(id);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDeleteBroker = async () => {
+        if (!brokerToDelete) return;
+
+        try {
+            await teamService.deleteBroker(brokerToDelete);
+            toast({
+                title: "Corretor removido",
+                description: "O corretor foi removido e seus leads foram redistribuídos.",
+            });
+            fetchData();
+        } catch (error) {
+            console.error('Error deleting broker:', error);
+            toast({
+                title: "Erro ao remover corretor",
+                description: "Não foi possível completar a ação.",
+                variant: "destructive"
+            });
+        } finally {
+            setBrokerToDelete(null);
+            setDeleteDialogOpen(false);
+        }
+    };
+
     const tabs: { label: string; value: TabFilter }[] = [
         { label: 'Todos', value: 'all' },
         { label: 'Gerentes', value: 'Gerente' },
@@ -207,7 +247,7 @@ export default function Team() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Equipe</h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-foreground">Equipe</h1>
                     <p className="text-muted-foreground">Gerencie os membros da sua equipe</p>
                 </div>
                 <Button
@@ -265,13 +305,13 @@ export default function Team() {
                     {filteredMembers.map((member, index) => (
                         <div
                             key={member.id}
-                            className="bg-card rounded-2xl p-6 shadow-soft border-none hover:shadow-lg transition-all duration-300 group animate-fade-in"
+                            className="bg-card rounded-xl p-4 shadow-soft border-none hover:shadow-lg transition-all duration-300 group animate-fade-in"
                             style={{ animationDelay: `${index * 0.05}s` }}
                         >
                             <div className="flex items-start justify-between mb-6">
                                 <div className="flex items-center gap-4">
                                     <div className={cn(
-                                        'flex h-14 w-14 items-center justify-center rounded-full font-bold text-xl shadow-inner',
+                                        'flex h-10 w-10 items-center justify-center rounded-full font-bold text-lg shadow-inner',
                                         member.role === 'Gerente'
                                             ? 'bg-primary text-primary-foreground'
                                             : 'bg-primary/10 text-primary'
@@ -286,9 +326,9 @@ export default function Team() {
                                         <TooltipProvider>
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
-                                                    <h3 className="font-bold text-base text-card-foreground group-hover:text-primary transition-colors cursor-default">
-                                                        {(member.name || member.full_name || '').length > 18 
-                                                            ? `${(member.name || member.full_name || '').substring(0, 18)}...` 
+                                                    <h3 className="font-bold text-sm text-card-foreground group-hover:text-primary transition-colors cursor-default">
+                                                        {(member.name || member.full_name || '').length > 22 
+                                                            ? `${(member.name || member.full_name || '').substring(0, 22)}...` 
                                                             : (member.name || member.full_name)}
                                                     </h3>
                                                 </TooltipTrigger>
@@ -304,10 +344,10 @@ export default function Team() {
                                 </div>
                                 {member.user_type === 'broker' && (
                                     <div className="flex flex-col items-end gap-1">
-                                         <Switch
+                                        <Switch
                                             checked={member.status === 'active'}
                                             onCheckedChange={() => toggleStatus(member.id, member.status)}
-                                            className="data-[state=checked]:bg-primary"
+                                            className="data-[state=checked]:bg-primary h-5 w-9"
                                         />
                                         <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
                                             {member.status === 'active' ? 'Ativo' : 'Inativo'}
@@ -316,40 +356,58 @@ export default function Team() {
                                 )}
                             </div>
 
-                            <div className="space-y-3 mb-6">
-                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                    <div className="p-1.5 rounded-lg bg-muted/50">
-                                        <Mail className="h-4 w-4" />
+                            <div className="space-y-2 mb-4">
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <div className="p-1 rounded-md bg-muted/50">
+                                        <Mail className="h-3 w-3" />
                                     </div>
                                     <span className="truncate font-medium">{member.email}</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                                    <div className="p-1.5 rounded-lg bg-muted/50">
-                                        <Phone className="h-4 w-4" />
+                                <a 
+                                    href={`https://wa.me/55${member.phone.replace(/\D/g, '')}?text=Oi ${member.name?.split(' ')[0] || ''} tudo joia?`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors group/phone"
+                                >
+                                    <div className="p-1 rounded-md bg-muted/50 group-hover/phone:bg-primary/10 group-hover/phone:text-primary transition-colors">
+                                        <Phone className="h-3 w-3" />
                                     </div>
                                     <span className="font-medium">{member.phone}</span>
-                                </div>
+                                </a>
                             </div>
 
-                            <div className="flex gap-6 pt-5 border-t border-muted/50">
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/5 text-primary">
-                                        <UsersIcon className="h-5 w-5" />
+                            <div className="flex items-center justify-between pt-3 border-t border-muted/50">
+                                <div className="flex gap-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/5 text-primary">
+                                            <UsersIcon className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-card-foreground leading-tight">{member.leads || 0}</p>
+                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Leads</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-lg font-bold text-card-foreground leading-tight">{member.leads || 0}</p>
-                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Leads</p>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/5 text-success">
+                                            <TrendingUp className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-card-foreground leading-tight">{member.sales || 0}</p>
+                                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Vendas</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/5 text-success">
-                                        <TrendingUp className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-lg font-bold text-card-foreground leading-tight">{member.sales || 0}</p>
-                                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vendas</p>
-                                    </div>
-                                </div>
+                                {member.user_type === 'broker' && (
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                        onClick={() => handleDeleteClick(member.id)}
+                                        title="Remover corretor"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -360,6 +418,22 @@ export default function Team() {
                     )}
                 </div>
             )}
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir Corretor?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Tem certeza que deseja deletar este corretor? Se fizer isso, os leads deles serão redistribuídos automaticamente (voltarão para "Novo" e ficarão sem corretor).
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={confirmDeleteBroker} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Sim, deletar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

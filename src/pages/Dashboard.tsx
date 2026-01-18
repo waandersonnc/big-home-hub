@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Users, TrendingUp, DollarSign, Target, Phone, Calendar, Clock, Loader2 } from 'lucide-react';
 import { KPICard } from '@/components/ui/kpi-card';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -6,6 +6,7 @@ import { leads as mockLeads, teamMembers } from '@/data/mockData';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { dashboardService, DashboardStats } from '@/services/dashboard.service';
+import { supabase } from '@/lib/supabase';
 import { CHART_CONFIG, UI_TEXT } from '@/lib/constants';
 import { HorizontalFunnel } from '@/components/HorizontalFunnel';
 import { LoadingScreen } from '@/components/LoadingScreen';
@@ -43,6 +44,23 @@ interface DisplayAgent {
   role: string;
   sales: number;
   avatar: string;
+}
+
+interface BrokerQueueItem {
+  id: string;
+  name: string;
+  position: number;
+  lostLeads: number;
+  lastLeadAt: string | null;
+}
+
+interface DistributionItem {
+  id: string;
+  lead: string;
+  broker: string;
+  updatedAt: string;
+  esperaIniciada?: string;
+  fimDaEspera?: string;
 }
 
 // Função para gerar dados do gráfico baseados no período
@@ -101,20 +119,24 @@ export default function Dashboard() {
   const { selectedCompanyId, selectedCompany } = useCompany();
 
   // Check demo from both sources
+interface ChartDataPoint {
+  name: string;
+  [key: string]: string | number;
+}
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLeads, setRecentLeads] = useState<DisplayLead[]>([]);
   const [topAgents, setTopAgents] = useState<DisplayAgent[]>([]);
-  const [queue, setQueue] = useState<any[]>([]);
-  const [chartData, setChartData] = useState<any[]>([]);
-  const [distributions, setDistributions] = useState<any[]>([]);
+  const [queue, setQueue] = useState<BrokerQueueItem[]>([]);
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [distributions, setDistributions] = useState<DistributionItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Check demo state from AuthContext
   const isDemo = authIsDemo;
 
   // Fetch real data when company is selected
-  useEffect(() => {
-    async function fetchData() {
+  const fetchData = useCallback(async () => {
       // Determine company ID
       const companyId = selectedCompanyId || (isDemo ? '42c4a6ab-5b49-45f0-a344-fad80e7ac9d2' : null);
 
@@ -129,28 +151,31 @@ export default function Dashboard() {
             dashboardService.getRecentDistributions(companyId),
             dashboardService.getBrokerQueue(companyId)
           ]);
+          
+          const queueTyped = queueData as unknown as BrokerQueueItem[];
+          const distsTyped = dists as unknown as DistributionItem[];
 
           // Se temos uma empresa, usamos os dados do banco (mesmo que sejam 0 no período)
           if (companyId) {
             setStats(companyStats);
-            setRecentLeads(leads.map((l: any) => ({
-              id: l.id,
-              name: l.name,
-              phone: l.phone || 'Sem telefone',
-              interest: l.interest || l.project_name || l.interest_area || 'Interesse Geral',
-              createdAt: l.created_at,
-              origin: l.source || 'Desconhecido'
+            setRecentLeads(leads.map((l: Record<string, unknown>) => ({
+              id: l.id as string,
+              name: l.name as string,
+              phone: (l.phone as string) || 'Sem telefone',
+              interest: (l.interest as string) || (l.project_name as string) || (l.interest_area as string) || 'Interesse Geral',
+              createdAt: l.created_at as string,
+              origin: (l.source as string) || 'Desconhecido'
             })));
-            setTopAgents(agents.map((a: any) => ({
-              id: a.id,
-              name: a.full_name,
+            setTopAgents(agents.map((a: Record<string, unknown>) => ({
+              id: a.id as string,
+              name: (a.full_name as string) || (a.name as string),
               role: a.user_type === 'manager' ? 'Gerente' : 'Corretor',
-              sales: a.sales,
-              avatar: a.full_name?.charAt(0).toUpperCase() || 'U'
+              sales: (a.sales as number) || 0,
+              avatar: ((a.full_name as string) || (a.name as string))?.charAt(0).toUpperCase() || 'U'
             })));
-            setQueue(queueData);
-            setDistributions(dists);
-            setChartData(cData);
+            setQueue(queueTyped);
+            setDistributions(distsTyped);
+            setChartData(cData.map(d => ({ ...d, name: d.date })));
             setIsLoading(false);
             return;
           }
@@ -191,10 +216,13 @@ export default function Dashboard() {
           setQueue(teamMembers
             .filter(m => m.status === 'active' && m.role === 'Corretor')
             .slice(0, 4)
-            .map(m => ({
+            .map((m, index) => ({
               id: m.id,
               name: m.name,
-              avatar: m.avatar
+              avatar: m.avatar,
+              position: index + 1,
+              lostLeads: 0,
+              lastLeadAt: null
             }))
           );
           setChartData(generateDemoChartData(periodFilter));
@@ -234,8 +262,44 @@ export default function Dashboard() {
       }
     }
 
+  , [selectedCompanyId, isDemo, periodFilter]);
+
+  useEffect(() => {
     fetchData();
-  }, [selectedCompanyId, isDemo, selectedCompany, periodFilter]);
+  }, [fetchData]);
+
+  // Real-time subscription
+  useEffect(() => {
+    if (!selectedCompanyId || isDemo) return;
+
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'leads',
+          filter: `company_id=eq.${selectedCompanyId}`
+        },
+        () => fetchData()
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'brokers',
+          filter: `company_id=eq.${selectedCompanyId}`
+        },
+        () => fetchData()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedCompanyId, isDemo, fetchData]);
 
   // Memoize chart data with safer fallback
   const displayChartData = useMemo(() => {
@@ -300,7 +364,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Select value={periodFilter} onValueChange={(v: any) => setPeriodFilter(v)}>
+          <Select value={periodFilter} onValueChange={(v: 'month' | 'lastMonth' | 'year') => setPeriodFilter(v)}>
             <SelectTrigger className="w-[160px] bg-white/5 border-white/10 text-foreground">
               <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue placeholder="Período" />
@@ -375,9 +439,9 @@ export default function Dashboard() {
       {/* Secondary Cards - 4-Column Grid Layout */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Recent Leads */}
-        <div className="glass-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[380px]">
+        <div className="glass-card rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[320px]">
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h2 className="text-[15px] font-bold text-card-foreground">
+            <h2 className="text-sm font-bold text-card-foreground">
               Oportunidades
             </h2>
             <div className="bg-primary/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
@@ -398,10 +462,16 @@ export default function Dashboard() {
                         {lead.name}
                       </p>
                       <div className="flex flex-col gap-1 mt-1.5">
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 leading-none truncate">
+                        <a 
+                          href={`https://wa.me/55${lead.phone.replace(/\D/g, '')}?text=Oi ${lead.name.split(' ')[0]} tudo joia?`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] text-muted-foreground flex items-center gap-1 leading-none truncate hover:text-primary transition-colors cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Phone className="h-2.5 w-2.5 text-primary/70" />
                           {lead.phone}
-                        </p>
+                        </a>
                         {lead.interest && (
                           <p className="text-[10px] text-primary font-semibold truncate flex items-center gap-1 leading-none bg-primary/5 p-1 -ml-1 rounded">
                             <Target className="h-2.5 w-2.5 text-primary/70" />
@@ -432,9 +502,9 @@ export default function Dashboard() {
         </div>
 
         {/* Distribuição */}
-        <div className="glass-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[380px]">
+        <div className="glass-card rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[320px]">
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h2 className="text-[15px] font-bold text-card-foreground">
+            <h2 className="text-sm font-bold text-card-foreground">
               Distribuição
             </h2>
             <div className="bg-warning/10 text-warning text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
@@ -487,9 +557,9 @@ export default function Dashboard() {
         </div>
 
         {/* Fila */}
-        <div className="glass-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[380px]">
+        <div className="glass-card rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[320px]">
           <div className="flex items-center justify-between mb-3 flex-shrink-0">
-            <h2 className="text-[15px] font-bold text-card-foreground">
+            <h2 className="text-sm font-bold text-card-foreground">
               Fila
             </h2>
             <div className="bg-success/10 text-success text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
@@ -520,7 +590,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-[9px] font-bold text-destructive/80">
+                    <p className="text-[9px] font-bold text-destructive/80 dark:text-red-400">
                       {agent.lostLeads} Perdidos
                     </p>
                   </div>
@@ -536,8 +606,8 @@ export default function Dashboard() {
         </div>
 
         {/* Top Agents */}
-        <div className="glass-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[380px]">
-          <h2 className="text-[15px] font-bold text-card-foreground mb-3">
+        <div className="glass-card rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[320px]">
+          <h2 className="text-sm font-bold text-card-foreground mb-3">
             Top Corretores
           </h2>
           <div className="flex-1 space-y-2 overflow-y-auto pr-1 leads-scroll">

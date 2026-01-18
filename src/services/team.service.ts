@@ -61,5 +61,29 @@ export const teamService = {
             .eq('id', brokerId);
 
         if (error) throw error;
+    },
+
+    async deleteBroker(brokerId: string) {
+        // 1. Redistribute leads: Reset leads assigned to this broker
+        const { error: updateError } = await supabase
+            .from('leads')
+            .update({ 
+                my_broker: null, 
+                my_manager: null,
+                stage: 'novo',
+                updated_at: new Date().toISOString()
+            })
+            .eq('my_broker', brokerId);
+
+        if (updateError) throw updateError;
+
+        // 2. Delete the user from Auth and public tables via Edge Function
+        const { error: deleteError } = await supabase.functions.invoke('delete-team-user', {
+            body: { userId: brokerId }
+        });
+
+        if (deleteError) throw deleteError;
+
+        return { success: true };
     }
 };

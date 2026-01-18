@@ -48,6 +48,15 @@ export interface CompanyStats {
     revenue: number;
 }
 
+export interface ChartPoint {
+    date: string;
+    fullDate?: string;
+    leads: number;
+    docs: number;
+    sales: number;
+    revenue: number;
+}
+
 // ============================================
 // SERVICE
 // ============================================
@@ -315,7 +324,7 @@ export const dashboardService = {
             const now = new Date();
             let startDate: Date;
             let endDate: Date;
-            let isDaily = period !== 'year';
+            const isDaily = period !== 'year';
 
             if (period === 'month') {
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -338,7 +347,7 @@ export const dashboardService = {
             const leads = leadsResponse.data || [];
             const transactions = transactionsResponse.data || [];
 
-            const chartPoints: any[] = [];
+            const chartPoints: ChartPoint[] = [];
 
             if (isDaily) {
                 const daysInMonth = endDate.getDate();
@@ -649,7 +658,7 @@ export const dashboardService = {
             return (data || []).map(l => ({
                 id: l.id,
                 lead: l.name,
-                broker: (l.brokers as any)?.name || 'N/A',
+                broker: (l.brokers as unknown as { name: string })?.name || 'N/A',
                 updatedAt: l.updated_at,
                 esperaIniciada: l.espera_iniciada,
                 fimDaEspera: l.fim_da_espera
@@ -693,9 +702,10 @@ export const dashboardService = {
         try {
             const { data, error } = await supabase
                 .from('brokers')
-                .select('id, name, recebeulead, leadsperdidos')
+                .select('id, name, recebeulead, perdeulead')
                 .eq('company_id', companyId)
                 .eq('active', true)
+                .eq('quer_lead', true)
                 .order('recebeulead', { ascending: true, nullsFirst: true });
 
             if (error) {
@@ -707,7 +717,7 @@ export const dashboardService = {
                 id: b.id,
                 name: b.name,
                 position: index + 1,
-                lostLeads: b.leadsperdidos || 0,
+                lostLeads: b.perdeulead || 0,
                 lastLeadAt: b.recebeulead
             }));
         } catch (error) {
@@ -819,7 +829,7 @@ export const dashboardService = {
         stage: string;
         informativeText: string;
         authorName: string;
-        closingData?: any;
+        closingData?: Record<string, unknown>;
         document_urls?: string[];
     }) {
         try {
@@ -948,7 +958,7 @@ export const dashboardService = {
     /**
      * Cria um novo lead no sistema
      */
-    async createLead(leadData: any) {
+    async createLead(leadData: Record<string, unknown>) {
         try {
             const { error } = await supabase
                 .from('leads')
