@@ -224,7 +224,7 @@ export const dashboardService = {
     /**
      * Busca estatísticas de uma empresa específica com filtro de período
      */
-    async getCompanyStats(companyId: string, period: 'month' | 'lastMonth' | 'year' = 'month'): Promise<DashboardStats> {
+    async getCompanyStats(companyId: string, period: 'month' | 'lastMonth' | 'year' = 'month', brokerId?: string): Promise<DashboardStats> {
         try {
             const now = new Date();
             let startDate: string;
@@ -250,6 +250,11 @@ export const dashboardService = {
                 .gte('created_at', startDate);
 
             if (endDate) leadsQuery = leadsQuery.lte('created_at', endDate);
+            
+            // Filtro específico para corretor
+            if (brokerId) {
+                leadsQuery = leadsQuery.eq('my_broker', brokerId);
+            }
 
             const { data: leads, error: leadsError } = await leadsQuery;
 
@@ -261,7 +266,9 @@ export const dashboardService = {
             const docsLeads = allLeads.filter(l => l.stage === 'documentação' || l.stage === 'Proposta');
             const salesLeads = allLeads.filter(l => l.stage === 'comprou' || l.stage === 'Contrato');
 
-            // Buscar equipe (não filtrada por data, pois reflete o time atual)
+            // Buscar equipe
+            // Se for broker, não precisa saber o total da equipe, mas mantemos a query original ou retornamos 0/atual?
+            // Manteremos a query de contagem global da empresa pois não é dado sensível crítico, mas podemos otimizar.
             const [{ count: managersCount }, { count: brokersCount }] = await Promise.all([
                 supabase.from('managers').select('id', { count: 'exact', head: true }).eq('company_id', companyId),
                 supabase.from('brokers').select('id', { count: 'exact', head: true }).eq('company_id', companyId)
@@ -270,21 +277,25 @@ export const dashboardService = {
             const teamCount = (managersCount || 0) + (brokersCount || 0);
 
             // Faturamento filtrado por data
-            let revenueQuery = supabase
-                .from('financial_transactions')
-                .select('total_amount, type')
-                .eq('company_id', companyId)
-                .in('type', ['sale', 'Receita', 'Venda'])
-                .eq('status', 'paid')
-                .gte('created_at', startDate);
+            let totalRevenue = 0;
+            
+            // Apenas busca faturamento global se NÃO for broker (ou se tivermos lógica segura para comissão futuramente)
+            if (!brokerId) {
+                let revenueQuery = supabase
+                    .from('financial_transactions')
+                    .select('total_amount, type')
+                    .eq('company_id', companyId)
+                    .in('type', ['sale', 'Receita', 'Venda'])
+                    .eq('status', 'paid')
+                    .gte('created_at', startDate);
 
-            if (endDate) revenueQuery = revenueQuery.lte('created_at', endDate);
+                if (endDate) revenueQuery = revenueQuery.lte('created_at', endDate);
 
-            const { data: transactions } = await revenueQuery;
+                const { data: transactions } = await revenueQuery;
+                totalRevenue = transactions?.reduce((acc, tx) => acc + (Number(tx.total_amount) || 0), 0) || 0;
+            }
 
-            const totalRevenue = transactions?.reduce((acc, tx) => acc + (Number(tx.total_amount) || 0), 0) || 0;
-
-            // Total de imóveis (não filtrado por data)
+            // Total de imóveis
             const { count: propertiesCount } = await supabase
                 .from('properties')
                 .select('id', { count: 'exact', head: true })
@@ -295,7 +306,7 @@ export const dashboardService = {
                 totalLeads: allLeads.length,
                 totalDocs: docsLeads.length,
                 totalSales: salesLeads.length,
-                totalRevenue,
+                totalRevenue, 
                 managersCount: managersCount || 0,
                 brokersCount: brokersCount || 0,
                 teamCount,
@@ -319,7 +330,7 @@ export const dashboardService = {
     /**
      * Busca dados formatados para o gráfico de funil baseado no período
      */
-    async getChartData(companyId: string, period: 'month' | 'lastMonth' | 'year' = 'month') {
+    async getChartData(companyId: string, period: 'month' | 'lastMonth' | 'year' = 'month', brokerId?: string) {
         try {
             const now = new Date();
             let startDate: Date;
@@ -338,14 +349,27 @@ export const dashboardService = {
                 endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
             }
 
-            // Buscar Leads e Transações para o período
+            // Configurar Query de Leads
+            let leadsQuery = supabase.from('leads').select('created_at, stage').eq('company_id', companyId).gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+            
+            if (brokerId) {
+                leadsQuery = leadsQuery.eq('my_broker', brokerId);
+            }
+
+            // Configurar Query de Transações (Apenas se não for broker)
+            const transactionsQuery = supabase.from('financial_transactions').select('created_at, total_amount, type').eq('company_id', companyId).eq('status', 'paid').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+            
+            // Se for broker, não buscamos transactions por enquanto (retornamos vazio)
+            // ou poderíamos filtrar se existisse broker_id
+            
             const [leadsResponse, transactionsResponse] = await Promise.all([
-                supabase.from('leads').select('created_at, stage').eq('company_id', companyId).gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString()),
-                supabase.from('financial_transactions').select('created_at, total_amount, type').eq('company_id', companyId).eq('status', 'paid').gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString())
+                leadsQuery,
+                brokerId ? Promise.resolve({ data: [] }) : transactionsQuery
             ]);
 
             const leads = leadsResponse.data || [];
-            const transactions = transactionsResponse.data || [];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const transactions: any[] = transactionsResponse.data || [];
 
             const chartPoints: ChartPoint[] = [];
 
@@ -672,13 +696,19 @@ export const dashboardService = {
     /**
      * Busca todos os leads de uma empresa
      */
-    async getAllCompanyLeads(companyId: string) {
+    async getAllCompanyLeads(companyId: string, brokerId?: string) {
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from('leads')
                 .select('*')
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
+
+            if (brokerId) {
+                query = query.eq('my_broker', brokerId);
+            }
+
+            const { data, error } = await query;
 
             if (error) {
                 logger.error('Erro ao buscar todos os leads:', error.message);

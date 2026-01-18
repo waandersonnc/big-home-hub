@@ -115,7 +115,7 @@ const formatCurrency = (value: number) => {
 
 export default function Dashboard() {
   const [periodFilter, setPeriodFilter] = useState<'month' | 'lastMonth' | 'year'>('month');
-  const { user, isDemo: authIsDemo } = useAuthContext();
+  const { user, isDemo: authIsDemo, isBroker } = useAuthContext();
   const { selectedCompanyId, selectedCompany } = useCompany();
 
   // Check demo from both sources
@@ -143,13 +143,14 @@ interface ChartDataPoint {
       try {
         setIsLoading(true);
         if (companyId) {
+          const brokerId = isBroker ? user?.id : undefined;
           const [companyStats, leads, agents, cData, dists, queueData] = await Promise.all([
-            dashboardService.getCompanyStats(companyId, periodFilter),
-            dashboardService.getRecentLeads(companyId, 10),
-            dashboardService.getTopAgents(companyId, 5, periodFilter),
-            dashboardService.getChartData(companyId, periodFilter),
-            dashboardService.getRecentDistributions(companyId),
-            dashboardService.getBrokerQueue(companyId)
+            dashboardService.getCompanyStats(companyId, periodFilter, brokerId),
+            !isBroker ? dashboardService.getRecentLeads(companyId, 10) : Promise.resolve([]),
+            !isBroker ? dashboardService.getTopAgents(companyId, 5, periodFilter) : Promise.resolve([]),
+            dashboardService.getChartData(companyId, periodFilter, brokerId),
+            !isBroker ? dashboardService.getRecentDistributions(companyId) : Promise.resolve([]),
+            !isBroker ? dashboardService.getBrokerQueue(companyId) : Promise.resolve([])
           ]);
           
           const queueTyped = queueData as unknown as BrokerQueueItem[];
@@ -262,7 +263,7 @@ interface ChartDataPoint {
       }
     }
 
-  , [selectedCompanyId, isDemo, periodFilter]);
+  , [selectedCompanyId, isDemo, periodFilter, isBroker, user]);
 
   useEffect(() => {
     fetchData();
@@ -437,6 +438,7 @@ interface ChartDataPoint {
       </div>
 
       {/* Secondary Cards - 4-Column Grid Layout */}
+      {!isBroker && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Recent Leads */}
         <div className="glass-card rounded-xl p-3 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-[320px]">
@@ -636,6 +638,7 @@ interface ChartDataPoint {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

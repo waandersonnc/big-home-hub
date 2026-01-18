@@ -76,7 +76,7 @@ export default function Pipeline() {
   const isDemo = demoStore.isActive;
   const { selectedCompanyId } = useCompany();
   const { toast } = useToast();
-  const { user } = useAuthContext();
+  const { user, isBroker } = useAuthContext();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [leads, setLeads] = useState<any[]>([]);
@@ -320,7 +320,7 @@ export default function Pipeline() {
 
       if (companyId) {
         const [allLeads, team] = await Promise.all([
-          dashboardService.getAllCompanyLeads(companyId),
+          dashboardService.getAllCompanyLeads(companyId, isBroker ? user?.id : undefined),
           dashboardService.listTeam(companyId)
         ]);
 
@@ -685,6 +685,7 @@ export default function Pipeline() {
             className="pl-10"
           />
         </div>
+        {!isBroker && (
         <Select value={agentFilter} onValueChange={setAgentFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Corretor" />
@@ -696,6 +697,7 @@ export default function Pipeline() {
             ))}
           </SelectContent>
         </Select>
+        )}
       </div>
 
       {/* Kanban Board */}

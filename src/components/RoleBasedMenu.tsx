@@ -65,7 +65,7 @@ export function RoleBasedMenu({ isCollapsed = false, toggleCollapse }: RoleBased
         { name: 'Painel', path: '/painel', icon: LayoutDashboard, visible: true },
         { name: 'Equipe', path: '/equipe', icon: Users, visible: !isBroker },
         { name: 'Imóveis', path: '/imoveis', icon: Building2, visible: isOwner },
-        { name: 'Disponíveis', path: '/disponiveis', icon: Target, visible: true },
+        { name: 'Disponíveis', path: '/disponiveis', icon: Target, visible: !isBroker },
         { name: 'Movimentação', path: '/movimentacao', icon: Kanban, visible: true },
         { name: 'Financeiro', path: '/financeiro', icon: DollarSign, visible: isOwner || isManager },
         { name: 'Agentes', path: '/agentes', icon: Bot, visible: isOwner },
