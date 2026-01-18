@@ -168,9 +168,13 @@ export default function Team() {
     }, [selectedCompanyId, isDemo]);
 
     const filteredMembers = members.filter((member) => {
-        const nameToMatch = (member.name || member.full_name || 'Nome Usuário').toLowerCase();
+        const normalize = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+        
+        const nameToMatch = normalize(member.name || member.full_name || 'Nome Usuário');
+        const query = normalize(searchQuery);
+
         const matchesTab = activeTab === 'all' || member.role === activeTab;
-        const matchesSearch = nameToMatch.includes(searchQuery.toLowerCase());
+        const matchesSearch = nameToMatch.includes(query);
         return matchesTab && matchesSearch;
     });
 
